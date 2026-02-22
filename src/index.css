@@ -1,0 +1,114 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 6%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 11%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 11%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 1 100% 44%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 64%;
+
+    --accent: 1 100% 44%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 1 100% 44%;
+
+    --radius: 0.75rem;
+
+    --sidebar-background: 0 0% 8%;
+    --sidebar-foreground: 0 0% 85%;
+    --sidebar-primary: 1 100% 44%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 14%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 16%;
+    --sidebar-ring: 1 100% 44%;
+
+    /* Custom tokens */
+    --glow-red: 0 0 20px hsla(1, 100%, 44%, 0.4), 0 0 40px hsla(1, 100%, 44%, 0.2);
+    --glow-red-strong: 0 0 20px hsla(1, 100%, 44%, 0.6), 0 0 60px hsla(1, 100%, 44%, 0.3);
+    --surface-glass: hsla(0, 0%, 100%, 0.03);
+    --surface-elevated: 0 0% 13%;
+    --chart-green: 142 71% 45%;
+    --chart-amber: 38 92% 50%;
+    --chart-blue: 217 91% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Inter', system-ui, sans-serif;
+    font-weight: 700;
+  }
+
+  .font-display {
+    font-family: 'Orbitron', monospace;
+  }
+}
+
+@layer utilities {
+  .glow-red {
+    box-shadow: var(--glow-red);
+  }
+  .glow-red-strong {
+    box-shadow: var(--glow-red-strong);
+  }
+  .glass-surface {
+    background: var(--surface-glass);
+    backdrop-filter: blur(12px);
+  }
+  .text-gradient-red {
+    background: linear-gradient(135deg, hsl(1, 100%, 50%), hsl(1, 100%, 38%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .border-glow {
+    border: 1px solid hsla(1, 100%, 44%, 0.3);
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: hsl(0, 0%, 8%);
+}
+::-webkit-scrollbar-thumb {
+  background: hsl(0, 0%, 25%);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(1, 100%, 44%);
+}

@@ -1,0 +1,10 @@
+project_id = "uzxpmxzjtkrayleiuljd"
+
+[functions.plate-scanner]
+verify_jwt = false
+
+[functions.whatsapp-send]
+verify_jwt = false
+
+[functions.whatsapp-automation]
+verify_jwt = false

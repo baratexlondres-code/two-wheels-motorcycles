@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">TwoWheelsMotorcycles</string>
+    <string name="title_activity_main">TwoWheelsMotorcycles</string>
+    <string name="package_name">com.twowheels.motorcycles</string>
+    <string name="custom_url_scheme">com.twowheels.motorcycles</string>
+</resources>
