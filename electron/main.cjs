@@ -1,11 +1,24 @@
+'use strict';
+
 const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 
 const WEB_APP_URL = 'https://twowheelsmotorcycles.lovable.app';
 const MANUAL_URL = 'https://files.manuscdn.com/user_upload_by_module/session_file/310519663370733812/absAchFOUaCdFpAC.pdf';
 
-let mainWindow;
+let mainWindow = null;
 
+// ─── FORCE QUIT HELPER ───────────────────────────────────────────────────────
+// Called from every exit path — ensures the process always exits
+function forceQuit() {
+  if (mainWindow) {
+    mainWindow.destroy(); // destroy() bypasses all close handlers
+    mainWindow = null;
+  }
+  app.exit(0); // exit(0) is immediate, unlike quit() which can be cancelled
+}
+
+// ─── MENU ─────────────────────────────────────────────────────────────────────
 function buildMenu() {
   const template = [
     {
@@ -14,7 +27,7 @@ function buildMenu() {
         {
           label: 'Close App',
           accelerator: 'Alt+F4',
-          click: () => { app.quit(); },
+          click: () => forceQuit(),
         },
       ],
     },
@@ -27,24 +40,26 @@ function buildMenu() {
         {
           label: 'Open in Browser',
           accelerator: 'CmdOrCtrl+Shift+B',
-          click: () => { shell.openExternal(WEB_APP_URL); },
+          click: () => shell.openExternal(WEB_APP_URL),
         },
         {
           label: 'User Manual',
           accelerator: 'F1',
-          click: () => { shell.openExternal(MANUAL_URL); },
+          click: () => shell.openExternal(MANUAL_URL),
         },
         { type: 'separator' },
         {
           label: 'About Two Wheels Motorcycles',
           click: () => {
-            dialog.showMessageBox(mainWindow, {
-              type: 'info',
-              title: 'About',
-              message: 'Two Wheels Motorcycles',
-              detail: `Version ${app.getVersion()}\nMotorcycle Workshop Management System\n\nhttps://twowheelsmotorcycles.lovable.app`,
-              buttons: ['OK'],
-            });
+            if (mainWindow) {
+              dialog.showMessageBox(mainWindow, {
+                type: 'info',
+                title: 'About',
+                message: 'Two Wheels Motorcycles',
+                detail: `Version ${app.getVersion()}\nMotorcycle Workshop Management System\n\n${WEB_APP_URL}`,
+                buttons: ['OK'],
+              });
+            }
           },
         },
       ],
@@ -53,6 +68,7 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
+// ─── WINDOW ───────────────────────────────────────────────────────────────────
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280,
@@ -75,8 +91,9 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
+    // Check for updates after a short delay so the window is fully shown first
     if (app.isPackaged) {
-      checkForUpdates();
+      setTimeout(() => checkForUpdates(), 3000);
     }
   });
 
@@ -86,22 +103,30 @@ function createWindow() {
     return { action: 'deny' };
   });
 
-  // Do NOT intercept the close event — let it close naturally
+  // When the window's X button is clicked — use forceQuit
+  mainWindow.on('close', (e) => {
+    e.preventDefault(); // prevent default so we can call forceQuit
+    forceQuit();
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
+// ─── AUTO UPDATER ─────────────────────────────────────────────────────────────
 function checkForUpdates() {
   try {
     const { autoUpdater } = require('electron-updater');
     autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = true;
+    autoUpdater.autoInstallOnAppQuit = false; // NEVER block quit for install
+
     autoUpdater.on('update-available', (info) => {
+      if (!mainWindow) return;
       dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: 'Update Available',
-        message: `Version ${info.version} is available. Would you like to download it now?`,
+        message: `Version ${info.version} is available. Download now?`,
         buttons: ['Download', 'Later'],
         defaultId: 0,
       }).then((result) => {
@@ -109,28 +134,39 @@ function checkForUpdates() {
           autoUpdater.downloadUpdate();
           if (mainWindow) mainWindow.webContents.send('update-downloading');
         }
-      });
+      }).catch(() => {});
     });
+
     autoUpdater.on('update-downloaded', () => {
+      if (!mainWindow) return;
       dialog.showMessageBox(mainWindow, {
         type: 'info',
         title: 'Update Ready',
-        message: 'Update downloaded. The app will restart to install the update.',
+        message: 'Update downloaded. Restart to install?',
         buttons: ['Restart Now', 'Later'],
         defaultId: 0,
       }).then((result) => {
-        if (result.response === 0) autoUpdater.quitAndInstall();
-      });
+        if (result.response === 0) {
+          autoUpdater.quitAndInstall(false, true);
+        }
+      }).catch(() => {});
     });
-    autoUpdater.on('error', (err) => { console.error('Auto-updater error:', err); });
-    autoUpdater.checkForUpdates();
+
+    autoUpdater.on('error', (err) => {
+      console.error('Auto-updater error:', err.message);
+    });
+
+    autoUpdater.checkForUpdates().catch((err) => {
+      console.error('checkForUpdates failed:', err.message);
+    });
   } catch (e) {
     console.log('Auto-updater not available:', e.message);
   }
 }
 
-// IPC: Close App button in sidebar calls this
-ipcMain.on('window-close', () => { app.quit(); });
+// ─── IPC ──────────────────────────────────────────────────────────────────────
+// Close App button in sidebar
+ipcMain.on('window-close', () => forceQuit());
 ipcMain.on('window-minimize', () => { if (mainWindow) mainWindow.minimize(); });
 ipcMain.on('window-maximize', () => {
   if (mainWindow) {
@@ -138,16 +174,19 @@ ipcMain.on('window-maximize', () => {
     else mainWindow.maximize();
   }
 });
-ipcMain.on('open-external', (_, url) => { shell.openExternal(url); });
+ipcMain.on('open-external', (_, url) => shell.openExternal(url));
 ipcMain.on('check-for-updates', () => { if (app.isPackaged) checkForUpdates(); });
 
+// ─── APP LIFECYCLE ────────────────────────────────────────────────────────────
 app.whenReady().then(() => {
   buildMenu();
   createWindow();
 });
 
-// Quit when all windows are closed
-app.on('window-all-closed', () => { app.quit(); });
+// Fallback: if all windows are closed by other means
+app.on('window-all-closed', () => {
+  app.exit(0);
+});
 
 app.on('activate', () => {
   if (mainWindow === null) createWindow();
