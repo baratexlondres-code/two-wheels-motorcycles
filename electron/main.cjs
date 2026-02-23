@@ -87,14 +87,12 @@ function createWindow() {
     icon: path.join(__dirname, '../build/icon.png'),
   });
 
-  // Ensure we use the correct path relative to the app root
-  const indexPath = app.isPackaged
-    ? path.join(process.resourcesPath, 'app.asar', 'dist', 'index.html')
-    : path.join(__dirname, '..', 'dist', 'index.html');
-  
-  mainWindow.loadFile(indexPath).catch(err => {
-    console.error('Failed to load index.html:', err);
-  });
+  // Use a more robust way to load the index.html file
+  if (app.isPackaged) {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  } else {
+    mainWindow.loadURL('http://localhost:8080');
+  }
 
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
