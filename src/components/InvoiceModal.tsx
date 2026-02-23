@@ -74,11 +74,17 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
   const partsTotal = data.parts.reduce((sum, p) => sum + p.quantity * p.unit_price, 0);
   const servicesTotal = (data.services || []).reduce((sum, s) => sum + s.price, 0);
   const labor = parseFloat(laborCost) || 0;
+  
+  // O subtotal é a soma de peças, serviços e mão de obra
   const subtotal = partsTotal + servicesTotal + labor;
+  
+  // O VAT é calculado sobre o subtotal
   const vat = subtotal * vatRate;
+  
+  // O total final é sempre subtotal + VAT
   const totalWithVat = subtotal + vat;
 
-  // Total is always the same (with VAT included); the toggle only changes how it's displayed
+  // O displayTotal é o valor que será salvo no banco de dados
   const displayTotal = totalWithVat;
 
   const handleSaveLaborCost = async () => {
@@ -120,20 +126,22 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
     const finalTotal = displayTotal;
     const invoiceNum = data.job.invoice_number || data.job.job_number;
 
-    // When no-VAT, each service price includes VAT (e.g. £10.20 → £12.24)
-    const svcVatMul = withVat ? 1 : (1 + vatRate);
+    // Quando sem VAT, os preços individuais de peças e serviços devem refletir o valor com VAT embutido
+    const vatMul = withVat ? 1 : (1 + vatRate);
 
-    const partsRows = data.parts.map(p => `
+    const partsRows = data.parts.map(p => {
+      const up = p.unit_price * vatMul;
+      return `
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${p.name}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:center">${p.quantity}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${p.unit_price.toFixed(2)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${(p.quantity * p.unit_price).toFixed(2)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${up.toFixed(2)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${(p.quantity * up).toFixed(2)}</td>
       </tr>
-    `).join("");
+    `}).join("");
 
     const serviceRows = (data.services || []).map(s => {
-      const sp = s.price * svcVatMul;
+      const sp = s.price * vatMul;
       return `
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${s.description}</td>
@@ -146,19 +154,21 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
     const allRows = partsRows + serviceRows;
     const hasItems = data.parts.length > 0 || (data.services || []).length > 0;
 
-    const noVatServicesTotal = servicesTotal * (1 + vatRate);
+    const displayPartsTotal = partsTotal * vatMul;
+    const displayServicesTotal = servicesTotal * vatMul;
+    const displayLaborTotal = labor * vatMul;
 
     const totalsSection = withVat ? `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Parts</span><span>${cur}${partsTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Services</span><span>${cur}${servicesTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Labour</span><span>${cur}${labor.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Subtotal</span><span>${cur}${subtotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Peças</span><span>${cur}${partsTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Serviços</span><span>${cur}${servicesTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Mão de Obra</span><span>${cur}${labor.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;border-top:1px solid #eee;margin-top:4px"><span>Subtotal</span><span>${cur}${subtotal.toFixed(2)}</span></div>
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;color:#666"><span>VAT (${workshop.vat_rate}%)</span><span>${cur}${vat.toFixed(2)}</span></div>
       <div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:2px solid #1a1a1a;font-weight:bold;font-size:18px"><span>TOTAL</span><span>${cur}${finalTotal.toFixed(2)}</span></div>
     ` : `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Parts</span><span>${cur}${partsTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Services</span><span>${cur}${noVatServicesTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Labour</span><span>${cur}${labor.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Peças</span><span>${cur}${displayPartsTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Serviços</span><span>${cur}${displayServicesTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Mão de Obra</span><span>${cur}${displayLaborTotal.toFixed(2)}</span></div>
       <div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:2px solid #1a1a1a;font-weight:bold;font-size:18px"><span>TOTAL</span><span>${cur}${finalTotal.toFixed(2)}</span></div>
     `;
 

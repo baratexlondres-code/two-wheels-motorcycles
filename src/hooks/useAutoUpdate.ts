@@ -4,7 +4,7 @@ import { isCapacitor } from "@/App";
 const GITHUB_RELEASES_URL =
   "https://api.github.com/repos/baratexlondres-code/two-wheels-motorcycles/releases/latest";
 
-const CURRENT_VERSION = "1.0.6"; // updated each build
+const CURRENT_VERSION = "1.0.7"; // updated each build
 
 interface UpdateInfo {
   version: string;
