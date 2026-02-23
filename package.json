@@ -1,7 +1,7 @@
 {
   "name": "vite_react_shadcn_ts",
   "private": true,
-  "version": "1.0.1",
+  "version": "1.0.5",
   "type": "module",
   "dependencies": {
     "@capacitor/android": "^8.1.0",
@@ -71,7 +71,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "electron:build": "electron-builder --win --x64"
+    "electron:build": "electron-builder --win --x64",
+    "postinstall": "electron-builder install-app-deps"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.2.0",

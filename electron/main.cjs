@@ -118,36 +118,28 @@ function createWindow() {
 function checkForUpdates() {
   try {
     const { autoUpdater } = require('electron-updater');
-    autoUpdater.autoDownload = false;
-    autoUpdater.autoInstallOnAppQuit = false; // NEVER block quit for install
+    autoUpdater.autoDownload = true; // Let it download in background
+    autoUpdater.autoInstallOnAppQuit = true;
 
     autoUpdater.on('update-available', (info) => {
-      if (!mainWindow) return;
-      dialog.showMessageBox(mainWindow, {
-        type: 'info',
-        title: 'Update Available',
-        message: `Version ${info.version} is available. Download now?`,
-        buttons: ['Download', 'Later'],
-        defaultId: 0,
-      }).then((result) => {
-        if (result.response === 0) {
-          autoUpdater.downloadUpdate();
-          if (mainWindow) mainWindow.webContents.send('update-downloading');
-        }
-      }).catch(() => {});
+      console.log('Update available:', info.version);
+      if (mainWindow) {
+        mainWindow.webContents.send('update-available', info);
+      }
     });
 
-    autoUpdater.on('update-downloaded', () => {
+    autoUpdater.on('update-downloaded', (info) => {
+      console.log('Update downloaded:', info.version);
       if (!mainWindow) return;
       dialog.showMessageBox(mainWindow, {
         type: 'info',
-        title: 'Update Ready',
-        message: 'Update downloaded. Restart to install?',
-        buttons: ['Restart Now', 'Later'],
+        title: 'Atualização Pronta',
+        message: `A versão ${info.version} foi baixada. Deseja reiniciar o aplicativo para instalar agora?`,
+        buttons: ['Reiniciar Agora', 'Depois'],
         defaultId: 0,
       }).then((result) => {
         if (result.response === 0) {
-          autoUpdater.quitAndInstall(false, true);
+          autoUpdater.quitAndInstall();
         }
       }).catch(() => {});
     });
