@@ -89,7 +89,13 @@ function createWindow() {
 
   // Use a more robust way to load the index.html file
   if (app.isPackaged) {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+    // In production, the dist folder is at the same level as the electron folder inside app.asar
+    const prodPath = path.join(__dirname, '..', 'dist', 'index.html');
+    mainWindow.loadFile(prodPath).catch(err => {
+      console.error('Failed to load index.html:', err);
+      // Fallback to a simpler path if the above fails
+      mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
+    });
   } else {
     mainWindow.loadURL('http://localhost:8080');
   }
