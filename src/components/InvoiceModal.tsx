@@ -31,11 +31,19 @@ interface Props {
 
 const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
   const [workshop, setWorkshop] = useState({ name: "Two Wheels Motorcycles", phone: "", email: "", address: "", vat_rate: "20", currency: "£" });
-  // Labour is only what was explicitly saved as labor_cost — never inherit estimated_cost
-  const initialLabor = data.job.labor_cost != null && data.job.labor_cost > 0
-    ? data.job.labor_cost
-    : 0;
-  const [laborCost, setLaborCost] = useState(String(initialLabor));
+  // Labour: use labor_cost, or fallback to final_cost/estimated_cost if no parts/services exist
+  const computeInitialLabor = () => {
+    if (data.job.labor_cost != null && data.job.labor_cost > 0) return data.job.labor_cost;
+    // If there are no parts and no services, use final_cost or estimated_cost as labor
+    const hasParts = data.parts.length > 0;
+    const hasServices = (data.services || []).length > 0;
+    if (!hasParts && !hasServices) {
+      if (data.job.final_cost != null && data.job.final_cost > 0) return data.job.final_cost;
+      if (data.job.estimated_cost != null && data.job.estimated_cost > 0) return data.job.estimated_cost;
+    }
+    return 0;
+  };
+  const [laborCost, setLaborCost] = useState(String(computeInitialLabor()));
   const [saving, setSaving] = useState(false);
   const [includeVat, setIncludeVat] = useState(true);
 
@@ -75,17 +83,14 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
   const servicesTotal = (data.services || []).reduce((sum, s) => sum + s.price, 0);
   const labor = parseFloat(laborCost) || 0;
   
-  // O subtotal é a soma de peças, serviços e mão de obra
+  // Subtotal = parts + services + labor
   const subtotal = partsTotal + servicesTotal + labor;
   
-  // O VAT é calculado sobre o subtotal
-  const vat = subtotal * vatRate;
+  // VAT only when includeVat is ON
+  const vat = includeVat ? subtotal * vatRate : 0;
   
-  // O total final é sempre subtotal + VAT
-  const totalWithVat = subtotal + vat;
-
-  // O displayTotal é o valor que será salvo no banco de dados
-  const displayTotal = totalWithVat;
+  // Total = subtotal + VAT (or just subtotal when VAT is OFF)
+  const displayTotal = subtotal + vat;
 
   const handleSaveLaborCost = async () => {
     await supabase.from("repair_jobs").update({ labor_cost: labor, final_cost: displayTotal }).eq("id", data.job.id);
@@ -123,53 +128,47 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
 
   const buildInvoiceHTML = async (withVat: boolean, opts?: { showPrintBtn?: boolean; showEmailLink?: boolean }) => {
     const logoBase64 = await getLogoBase64();
-    const finalTotal = displayTotal;
     const invoiceNum = data.job.invoice_number || data.job.job_number;
 
-    // Quando sem VAT, os preços individuais de peças e serviços devem refletir o valor com VAT embutido
-    const vatMul = withVat ? 1 : (1 + vatRate);
+    // Calculate totals based on VAT toggle for the HTML
+    const htmlVat = withVat ? subtotal * vatRate : 0;
+    const htmlTotal = subtotal + htmlVat;
 
     const partsRows = data.parts.map(p => {
-      const up = p.unit_price * vatMul;
       return `
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${p.name}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:center">${p.quantity}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${up.toFixed(2)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${(p.quantity * up).toFixed(2)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${p.unit_price.toFixed(2)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${(p.quantity * p.unit_price).toFixed(2)}</td>
       </tr>
     `}).join("");
 
     const serviceRows = (data.services || []).map(s => {
-      const sp = s.price * vatMul;
       return `
       <tr>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px">${s.description}</td>
         <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:center">1</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${sp.toFixed(2)}</td>
-        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${sp.toFixed(2)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${s.price.toFixed(2)}</td>
+        <td style="padding:8px 12px;border-bottom:1px solid #eee;font-size:13px;text-align:right">${cur}${s.price.toFixed(2)}</td>
       </tr>
     `}).join("");
 
     const allRows = partsRows + serviceRows;
     const hasItems = data.parts.length > 0 || (data.services || []).length > 0;
 
-    const displayPartsTotal = partsTotal * vatMul;
-    const displayServicesTotal = servicesTotal * vatMul;
-    const displayLaborTotal = labor * vatMul;
-
     const totalsSection = withVat ? `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Peças</span><span>${cur}${partsTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Serviços</span><span>${cur}${servicesTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Mão de Obra</span><span>${cur}${labor.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Parts</span><span>${cur}${partsTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Services</span><span>${cur}${servicesTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Labour</span><span>${cur}${labor.toFixed(2)}</span></div>
       <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;border-top:1px solid #eee;margin-top:4px"><span>Subtotal</span><span>${cur}${subtotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;color:#666"><span>VAT (${workshop.vat_rate}%)</span><span>${cur}${vat.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:2px solid #1a1a1a;font-weight:bold;font-size:18px"><span>TOTAL</span><span>${cur}${finalTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px;color:#666"><span>VAT (${workshop.vat_rate}%)</span><span>${cur}${htmlVat.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:2px solid #1a1a1a;font-weight:bold;font-size:18px"><span>TOTAL</span><span>${cur}${htmlTotal.toFixed(2)}</span></div>
     ` : `
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Peças</span><span>${cur}${displayPartsTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Serviços</span><span>${cur}${displayServicesTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Mão de Obra</span><span>${cur}${displayLaborTotal.toFixed(2)}</span></div>
-      <div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:2px solid #1a1a1a;font-weight:bold;font-size:18px"><span>TOTAL</span><span>${cur}${finalTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Parts</span><span>${cur}${partsTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Services</span><span>${cur}${servicesTotal.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:6px 0;font-size:14px"><span>Labour</span><span>${cur}${labor.toFixed(2)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding-top:10px;margin-top:4px;border-top:2px solid #1a1a1a;font-weight:bold;font-size:18px"><span>TOTAL</span><span>${cur}${htmlTotal.toFixed(2)}</span></div>
     `;
 
     const paidStamp = data.job.payment_status === "paid" ? `
@@ -299,8 +298,8 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
   };
 
   const invoiceText = (withVat: boolean) => {
-    const finalTotal = displayTotal;
-    const svcMul = withVat ? 1 : (1 + vatRate);
+    const textVat = withVat ? subtotal * vatRate : 0;
+    const textTotal = subtotal + textVat;
     const lines = [
       `*${workshop.name}*`,
       `Invoice: ${data.job.invoice_number || data.job.job_number}`,
@@ -312,21 +311,17 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
       `*Description:* ${description}`,
       ``,
       ...data.parts.map(p => `${p.name} x${p.quantity} — ${cur}${(p.quantity * p.unit_price).toFixed(2)}`),
-      ...(data.services || []).map(s => `${s.description} — ${cur}${(s.price * svcMul).toFixed(2)}`),
+      ...(data.services || []).map(s => `${s.description} — ${cur}${s.price.toFixed(2)}`),
       ``,
     ];
+    lines.push(`Parts: ${cur}${partsTotal.toFixed(2)}`);
+    lines.push(`Services: ${cur}${servicesTotal.toFixed(2)}`);
+    lines.push(`Labour: ${cur}${labor.toFixed(2)}`);
     if (withVat) {
-      lines.push(`Parts: ${cur}${partsTotal.toFixed(2)}`);
-      lines.push(`Services: ${cur}${servicesTotal.toFixed(2)}`);
-      lines.push(`Labour: ${cur}${labor.toFixed(2)}`);
       lines.push(`Subtotal: ${cur}${subtotal.toFixed(2)}`);
-      lines.push(`VAT (${workshop.vat_rate}%): ${cur}${vat.toFixed(2)}`);
-    } else {
-      lines.push(`Parts: ${cur}${partsTotal.toFixed(2)}`);
-      lines.push(`Services: ${cur}${(servicesTotal * (1 + vatRate)).toFixed(2)}`);
-      lines.push(`Labour: ${cur}${labor.toFixed(2)}`);
+      lines.push(`VAT (${workshop.vat_rate}%): ${cur}${textVat.toFixed(2)}`);
     }
-    lines.push(`*TOTAL: ${cur}${displayTotal.toFixed(2)}*`);
+    lines.push(`*TOTAL: ${cur}${textTotal.toFixed(2)}*`);
     return lines.join("\n");
   };
 
@@ -469,17 +464,14 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
                   <td style={{ padding: "8px 12px", borderBottom: "1px solid #eee", fontSize: 13, textAlign: "right" }}>{cur}{(p.quantity * p.unit_price).toFixed(2)}</td>
                 </tr>
               ))}
-              {(data.services || []).map((s, i) => {
-                const sp = includeVat ? s.price : s.price * (1 + vatRate);
-                return (
+              {(data.services || []).map((s, i) => (
                 <tr key={`svc-${i}`}>
                   <td style={{ padding: "8px 12px", borderBottom: "1px solid #eee", fontSize: 13 }}>{s.description}</td>
                   <td style={{ padding: "8px 12px", borderBottom: "1px solid #eee", fontSize: 13, textAlign: "center" }}>1</td>
-                  <td style={{ padding: "8px 12px", borderBottom: "1px solid #eee", fontSize: 13, textAlign: "right" }}>{cur}{sp.toFixed(2)}</td>
-                  <td style={{ padding: "8px 12px", borderBottom: "1px solid #eee", fontSize: 13, textAlign: "right" }}>{cur}{sp.toFixed(2)}</td>
+                  <td style={{ padding: "8px 12px", borderBottom: "1px solid #eee", fontSize: 13, textAlign: "right" }}>{cur}{s.price.toFixed(2)}</td>
+                  <td style={{ padding: "8px 12px", borderBottom: "1px solid #eee", fontSize: 13, textAlign: "right" }}>{cur}{s.price.toFixed(2)}</td>
                 </tr>
-                );
-              })}
+              ))}
               {data.parts.length === 0 && (data.services || []).length === 0 && (
                 <tr>
                   <td colSpan={4} style={{ padding: "12px", textAlign: "center", fontSize: 13, color: "#999" }}>No items added</td>
@@ -491,7 +483,7 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
           {/* Totals */}
           <div className="rounded-lg border border-border bg-secondary/50 p-4 w-full sm:w-[300px] sm:ml-auto">
             <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14 }}><span>Parts</span><span className="font-medium">{cur}{partsTotal.toFixed(2)}</span></div>
-            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14 }}><span>Services</span><span className="font-medium">{cur}{(includeVat ? servicesTotal : servicesTotal * (1 + vatRate)).toFixed(2)}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14 }}><span>Services</span><span className="font-medium">{cur}{servicesTotal.toFixed(2)}</span></div>
             <div style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", fontSize: 14 }}><span>Labour</span><span className="font-medium">{cur}{labor.toFixed(2)}</span></div>
             {includeVat && (
               <>
