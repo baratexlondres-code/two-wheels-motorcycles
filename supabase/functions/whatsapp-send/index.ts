@@ -14,12 +14,12 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { action, message_id, customer_id, phone_number, message_body, template_id, campaign_id, trigger_type } = await req.json();
+    const { action, message_id, customer_id, phone_number, message_body, template_id, campaign_id, trigger_type, document_url, document_filename, caption } = await req.json();
 
     // Send a single message
     if (action === "send") {
-      if (!phone_number || !message_body || !customer_id) {
-        return new Response(JSON.stringify({ error: "Missing required fields: phone_number, message_body, customer_id" }), {
+      if (!phone_number || !customer_id) {
+        return new Response(JSON.stringify({ error: "Missing required fields: phone_number, customer_id" }), {
           status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -31,7 +31,7 @@ serve(async (req) => {
       const { data: msg, error: insertError } = await supabase.from("whatsapp_messages").insert({
         customer_id,
         phone_number,
-        message_body,
+        message_body: message_body || caption || "Invoice PDF",
         template_id: template_id || null,
         campaign_id: campaign_id || null,
         trigger_type: trigger_type || "manual",
@@ -60,18 +60,37 @@ serve(async (req) => {
 
       // Send via WhatsApp Cloud API
       try {
+        let waBody: Record<string, unknown>;
+
+        if (document_url) {
+          // Send as document (PDF)
+          waBody = {
+            messaging_product: "whatsapp",
+            to: phone_number.replace(/[^0-9]/g, ""),
+            type: "document",
+            document: {
+              link: document_url,
+              filename: document_filename || "invoice.pdf",
+              caption: caption || "",
+            },
+          };
+        } else {
+          // Send as text
+          waBody = {
+            messaging_product: "whatsapp",
+            to: phone_number.replace(/[^0-9]/g, ""),
+            type: "text",
+            text: { body: message_body },
+          };
+        }
+
         const waResponse = await fetch(`https://graph.facebook.com/v21.0/${phoneNumberId}/messages`, {
           method: "POST",
           headers: {
             Authorization: `Bearer ${accessToken}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            messaging_product: "whatsapp",
-            to: phone_number.replace(/[^0-9]/g, ""),
-            type: "text",
-            text: { body: message_body },
-          }),
+          body: JSON.stringify(waBody),
         });
 
         const waData = await waResponse.json();

@@ -8,6 +8,7 @@ interface InvoiceData {
   job: {
     id: string;
     job_number: string;
+    customer_id: string;
     description: string;
     estimated_cost: number | null;
     final_cost: number | null;
@@ -545,10 +546,65 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
     const fileName = `Invoice_${invoiceNum.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
 
     try {
+      // 1. Generate PDF
       const pdfBlob = await generatePdfBlob();
-      const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
 
-      // Try Web Share API first (mobile — lets user pick WhatsApp and attach PDF)
+      // 2. Upload PDF to storage bucket
+      const storagePath = `${data.job.id}/${fileName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("invoices")
+        .upload(storagePath, pdfBlob, { contentType: "application/pdf", upsert: true });
+
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        // Fallback: try Web Share API or download
+        await fallbackWhatsApp(pdfBlob, fileName, invoiceNum, phone);
+        return;
+      }
+
+      // 3. Get public URL
+      const { data: urlData } = supabase.storage.from("invoices").getPublicUrl(storagePath);
+      const publicUrl = urlData.publicUrl;
+
+      // 4. Send PDF via WhatsApp Cloud API (edge function)
+      const caption = `📄 *Invoice ${invoiceNum}*\n${workshop.name}\nTotal: ${cur}${displayTotal.toFixed(2)}`;
+      
+      const { error: sendError } = await supabase.functions.invoke("whatsapp-send", {
+        body: {
+          action: "send",
+          customer_id: data.job.customer_id,
+          phone_number: phone,
+          document_url: publicUrl,
+          document_filename: fileName,
+          caption,
+          trigger_type: "invoice",
+        },
+      });
+
+      if (sendError) {
+        console.error("WhatsApp send error:", sendError);
+        // Fallback
+        await fallbackWhatsApp(pdfBlob, fileName, invoiceNum, phone);
+        return;
+      }
+
+      alert("✅ Invoice PDF sent via WhatsApp!");
+    } catch (err) {
+      console.error("WhatsApp PDF send failed:", err);
+      try {
+        const pdfBlob = await generatePdfBlob();
+        await fallbackWhatsApp(pdfBlob, fileName, invoiceNum, phone);
+      } catch (e) {
+        console.error("Fallback also failed:", e);
+        alert("Failed to send invoice. Please try again.");
+      }
+    }
+  };
+
+  const fallbackWhatsApp = async (pdfBlob: Blob, fileName: string, invoiceNum: string, phone: string) => {
+    // Try Web Share API first (mobile)
+    try {
+      const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
           title: `Invoice ${invoiceNum}`,
@@ -557,13 +613,10 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
         });
         return;
       }
-    } catch (err) {
-      console.log("Share API not available or cancelled:", err);
-    }
+    } catch {}
 
-    // Fallback: download PDF automatically, then open WhatsApp with message + instruction
+    // Download PDF + open WhatsApp with text
     try {
-      const pdfBlob = await generatePdfBlob();
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement("a");
       a.href = url;
@@ -572,14 +625,11 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
       a.click();
       document.body.removeChild(a);
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-    } catch (e) {
-      console.error("PDF download failed:", e);
-    }
+    } catch {}
 
-    // Open WhatsApp with text summary + instruction to attach the downloaded PDF
     const summary = invoiceText(includeVat);
-    const msgWithAttachNote = summary + `\n\n📎 _PDF invoice downloaded to your device — please attach it to this conversation._`;
-    const text = encodeURIComponent(msgWithAttachNote);
+    const msgWithNote = summary + `\n\n📎 _PDF invoice downloaded — please attach it to this chat._`;
+    const text = encodeURIComponent(msgWithNote);
     const waUrl = `https://wa.me/${phone.replace("+", "")}?text=${text}`;
     window.open(waUrl, "_blank");
   };
