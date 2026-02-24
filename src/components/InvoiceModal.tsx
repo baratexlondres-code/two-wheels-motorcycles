@@ -334,6 +334,205 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
     return cleaned;
   };
 
+  const generatePdfBlob = async (): Promise<Blob> => {
+    const { default: jsPDF } = await import("jspdf");
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    const contentWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    // Helper
+    const addLine = (leftText: string, rightText: string, fontSize = 10, bold = false) => {
+      doc.setFontSize(fontSize);
+      doc.setFont("helvetica", bold ? "bold" : "normal");
+      doc.text(leftText, margin, y);
+      doc.text(rightText, pageWidth - margin, y, { align: "right" });
+      y += fontSize * 0.5 + 2;
+    };
+
+    const checkPage = (needed: number) => {
+      if (y + needed > doc.internal.pageSize.getHeight() - 15) {
+        doc.addPage();
+        y = margin;
+      }
+    };
+
+    // Logo placeholder + Workshop name
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(230, 57, 70); // #e63946
+    doc.text(workshop.name, margin, y);
+    y += 8;
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    if (workshop.address) { doc.text(workshop.address, margin, y); y += 4; }
+    if (workshop.phone) { doc.text(`Tel: ${workshop.phone}`, margin, y); y += 4; }
+    if (workshop.email) { doc.text(workshop.email, margin, y); y += 4; }
+
+    // Invoice title on right
+    const invoiceNum = data.job.invoice_number || data.job.job_number;
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(26, 26, 26);
+    doc.text("INVOICE", pageWidth - margin, margin, { align: "right" });
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text(invoiceNum, pageWidth - margin, margin + 7, { align: "right" });
+    doc.text(`Date: ${new Date().toLocaleDateString("en-GB")}`, pageWidth - margin, margin + 12, { align: "right" });
+
+    if (data.job.payment_status === "paid") {
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(34, 197, 94);
+      doc.text("PAID", pageWidth - margin, margin + 20, { align: "right" });
+    }
+
+    // Separator
+    y = Math.max(y, margin + 24) + 4;
+    doc.setDrawColor(230, 57, 70);
+    doc.setLineWidth(0.8);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 8;
+
+    // Customer & Vehicle
+    doc.setTextColor(26, 26, 26);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.text("BILL TO", margin, y);
+    doc.text("VEHICLE", pageWidth / 2 + 5, y);
+    y += 5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(custName, margin, y);
+    doc.text(`${motoMake} ${motoModel}`, pageWidth / 2 + 5, y);
+    y += 5;
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    if (custAddress) { doc.text(custAddress, margin, y); y += 4; } else { y += 4; }
+    doc.text(`Reg: ${motoReg}`, pageWidth / 2 + 5, y - 4);
+    if (custPhone) { doc.text(`Tel: ${custPhone}`, margin, y); y += 4; }
+    if (motoYear) { doc.text(`Year: ${motoYear}`, pageWidth / 2 + 5, y - 4); }
+    if (custEmail) { doc.text(custEmail, margin, y); y += 4; }
+    y += 4;
+
+    // Description
+    doc.setDrawColor(230, 57, 70);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, margin, y + 12);
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(100, 100, 100);
+    doc.text("WORK DESCRIPTION", margin + 3, y + 3);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(26, 26, 26);
+    const descLines = doc.splitTextToSize(description, contentWidth - 6);
+    doc.text(descLines, margin + 3, y + 8);
+    y += 14 + (descLines.length - 1) * 4;
+
+    // Items table
+    checkPage(30);
+    const hasItems = data.parts.length > 0 || (data.services || []).length > 0;
+    if (hasItems) {
+      y += 4;
+      // Table header
+      doc.setFillColor(26, 26, 26);
+      doc.rect(margin, y, contentWidth, 7, "F");
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(255, 255, 255);
+      doc.text("ITEM", margin + 3, y + 5);
+      doc.text("QTY", margin + contentWidth * 0.6, y + 5, { align: "center" });
+      doc.text("UNIT PRICE", margin + contentWidth * 0.78, y + 5, { align: "right" });
+      doc.text("TOTAL", pageWidth - margin - 3, y + 5, { align: "right" });
+      y += 9;
+
+      doc.setTextColor(26, 26, 26);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+
+      for (const p of data.parts) {
+        checkPage(8);
+        doc.text(p.name.substring(0, 40), margin + 3, y);
+        doc.text(String(p.quantity), margin + contentWidth * 0.6, y, { align: "center" });
+        doc.text(`${cur}${p.unit_price.toFixed(2)}`, margin + contentWidth * 0.78, y, { align: "right" });
+        doc.text(`${cur}${(p.quantity * p.unit_price).toFixed(2)}`, pageWidth - margin - 3, y, { align: "right" });
+        y += 6;
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.2);
+        doc.line(margin, y - 2, pageWidth - margin, y - 2);
+      }
+
+      for (const s of (data.services || [])) {
+        checkPage(8);
+        doc.text(s.description.substring(0, 40), margin + 3, y);
+        doc.text("1", margin + contentWidth * 0.6, y, { align: "center" });
+        doc.text(`${cur}${s.price.toFixed(2)}`, margin + contentWidth * 0.78, y, { align: "right" });
+        doc.text(`${cur}${s.price.toFixed(2)}`, pageWidth - margin - 3, y, { align: "right" });
+        y += 6;
+        doc.setDrawColor(230, 230, 230);
+        doc.setLineWidth(0.2);
+        doc.line(margin, y - 2, pageWidth - margin, y - 2);
+      }
+    }
+
+    // Totals
+    checkPage(40);
+    y += 6;
+    const totalsX = pageWidth / 2 + 10;
+    doc.setFontSize(10);
+    doc.setTextColor(26, 26, 26);
+    addLine("Parts", `${cur}${partsTotal.toFixed(2)}`);
+    // Shift totals to right side
+    y -= 7; // reset last addLine
+    doc.text("Parts", totalsX, y); doc.text(`${cur}${partsTotal.toFixed(2)}`, pageWidth - margin, y, { align: "right" }); y += 6;
+    doc.text("Services", totalsX, y); doc.text(`${cur}${servicesTotal.toFixed(2)}`, pageWidth - margin, y, { align: "right" }); y += 6;
+    doc.text("Labour", totalsX, y); doc.text(`${cur}${labor.toFixed(2)}`, pageWidth - margin, y, { align: "right" }); y += 6;
+
+    if (includeVat) {
+      doc.setDrawColor(230, 230, 230);
+      doc.line(totalsX, y, pageWidth - margin, y);
+      y += 5;
+      doc.text("Subtotal", totalsX, y); doc.text(`${cur}${subtotal.toFixed(2)}`, pageWidth - margin, y, { align: "right" }); y += 6;
+      doc.setTextColor(100, 100, 100);
+      doc.text(`VAT (${workshop.vat_rate}%)`, totalsX, y); doc.text(`${cur}${vat.toFixed(2)}`, pageWidth - margin, y, { align: "right" }); y += 6;
+    }
+
+    doc.setDrawColor(26, 26, 26);
+    doc.setLineWidth(0.6);
+    doc.line(totalsX, y, pageWidth - margin, y);
+    y += 6;
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(26, 26, 26);
+    doc.text("TOTAL", totalsX, y);
+    doc.text(`${cur}${displayTotal.toFixed(2)}`, pageWidth - margin, y, { align: "right" });
+
+    if (!includeVat) {
+      y += 8;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(150, 150, 150);
+      doc.text("* VAT not applicable", pageWidth - margin, y, { align: "right" });
+    }
+
+    // Footer
+    y += 16;
+    checkPage(10);
+    doc.setDrawColor(230, 230, 230);
+    doc.line(margin, y, pageWidth - margin, y);
+    y += 6;
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Thank you for choosing ${workshop.name}. We appreciate your business!`, pageWidth / 2, y, { align: "center" });
+
+    return doc.output("blob");
+  };
+
   const handleWhatsApp = async () => {
     await handleSaveLaborCost();
     const phone = custPhone ? formatPhoneForWhatsApp(custPhone) : "";
@@ -341,9 +540,41 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
       alert("No phone number available for this customer.");
       return;
     }
+
+    const invoiceNum = data.job.invoice_number || data.job.job_number;
+    const fileName = `Invoice_${invoiceNum.replace(/[^a-zA-Z0-9]/g, "_")}.pdf`;
+
+    try {
+      const pdfBlob = await generatePdfBlob();
+      const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
+
+      // Try Web Share API (works on mobile — lets user pick WhatsApp directly)
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+        await navigator.share({
+          title: `Invoice ${invoiceNum}`,
+          text: `Invoice ${invoiceNum} — ${workshop.name}\nTotal: ${cur}${displayTotal.toFixed(2)}`,
+          files: [pdfFile],
+        });
+        return;
+      }
+    } catch (err) {
+      console.log("Share cancelled or failed, falling back to download + wa.me", err);
+    }
+
+    // Fallback: download PDF + open WhatsApp with text
+    try {
+      const pdfBlob = await generatePdfBlob();
+      const url = URL.createObjectURL(pdfBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {}
+
     const text = encodeURIComponent(invoiceText(includeVat));
-    const url = `https://wa.me/${phone.replace("+", "")}?text=${text}`;
-    window.open(url, "_blank");
+    const waUrl = `https://wa.me/${phone.replace("+", "")}?text=${text}`;
+    window.open(waUrl, "_blank");
   };
 
   const handleEmail = async () => {
