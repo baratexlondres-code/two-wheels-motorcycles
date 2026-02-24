@@ -11,7 +11,10 @@ interface RepairJob {
   id: string; job_number: string; status: string; description: string;
   final_cost: number | null; estimated_cost: number | null; labor_cost: number | null;
   payment_status: string; payment_date: string | null; received_at: string; completed_at: string | null;
+  customer_id: string; motorcycle_id: string; invoice_number: string | null;
 }
+interface Customer { id: string; name: string; phone: string | null; email: string | null; }
+interface Motorcycle { id: string; customer_id: string; registration: string; make: string; model: string; }
 interface RepairPart { id: string; repair_job_id: string; stock_item_id: string; quantity: number; unit_price: number; }
 interface RepairService { id: string; repair_job_id: string; description: string; price: number; }
 interface StockItem { id: string; name: string; cost_price: number; sell_price: number; }
@@ -49,6 +52,8 @@ const ReportsPage = () => {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [motoSales, setMotoSales] = useState<MotorcycleSale[]>([]);
   const [accSales, setAccSales] = useState<AccessorySale[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [loading, setLoading] = useState(true);
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date(); d.setMonth(d.getMonth() - 6);
@@ -59,16 +64,19 @@ const ReportsPage = () => {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
-      const [{ data: j }, { data: p }, { data: rs }, { data: s }, { data: ms }, { data: as }] = await Promise.all([
+      const [{ data: j }, { data: p }, { data: rs }, { data: s }, { data: ms }, { data: as }, { data: cu }, { data: mo }] = await Promise.all([
         supabase.from("repair_jobs").select("*").order("created_at", { ascending: false }),
         supabase.from("repair_parts").select("*"),
         supabase.from("repair_services").select("*"),
         supabase.from("stock_items").select("id, name, cost_price, sell_price"),
         supabase.from("motorcycle_sales").select("id, sale_price, cost_price, sale_date").order("sale_date", { ascending: false }),
         supabase.from("accessory_sales").select("id, total, created_at").order("created_at", { ascending: false }),
+        supabase.from("customers").select("id, name, phone, email"),
+        supabase.from("motorcycles").select("id, customer_id, registration, make, model"),
       ]);
       setJobs(j || []); setParts(p || []); setServices((rs as RepairService[]) || []);
       setStockItems(s || []); setMotoSales(ms || []); setAccSales(as || []);
+      setCustomers(cu || []); setMotorcycles(mo || []);
       setLoading(false);
     };
     fetchData();
@@ -148,10 +156,81 @@ const ReportsPage = () => {
   const totalJobs = filteredJobs.length;
 
   const exportCSV = () => {
-    const headers = ["Period", "Repairs (£)", "Motorcycles (£)", "Accessories (£)", "Total (£)"];
-    const rows = monthlyRevenue.map(r => [r.month, r.repairs.toFixed(2), r.motos.toFixed(2), r.accessories.toFixed(2), r.total.toFixed(2)]);
-    rows.push(["TOTAL", monthlyRevenue.reduce((s, r) => s + r.repairs, 0).toFixed(2), monthlyRevenue.reduce((s, r) => s + r.motos, 0).toFixed(2), monthlyRevenue.reduce((s, r) => s + r.accessories, 0).toFixed(2), totalRevenue.toFixed(2)]);
-    const csv = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const escCSV = (val: string) => val.includes(",") || val.includes('"') ? `"${val.replace(/"/g, '""')}"` : val;
+    const lines: string[] = [];
+
+    // Section 1: Summary
+    lines.push("=== SUMMARY ===");
+    lines.push("Metric,Value");
+    lines.push(`Total Revenue,${totalRevenue.toFixed(2)}`);
+    lines.push(`Repairs Revenue,${repairRevenue.toFixed(2)}`);
+    lines.push(`Motorcycle Sales,${motoRevenue.toFixed(2)}`);
+    lines.push(`Motorcycle Profit,${motoProfit.toFixed(2)}`);
+    lines.push(`Accessories Revenue,${accRevenue.toFixed(2)}`);
+    lines.push(`Total Jobs,${totalJobs}`);
+    lines.push("");
+
+    // Section 2: Revenue by Period
+    lines.push("=== REVENUE BY PERIOD ===");
+    lines.push("Period,Repairs (£),Motorcycles (£),Accessories (£),Total (£)");
+    monthlyRevenue.forEach(r => lines.push(`${r.month},${r.repairs.toFixed(2)},${r.motos.toFixed(2)},${r.accessories.toFixed(2)},${r.total.toFixed(2)}`));
+    lines.push(`TOTAL,${monthlyRevenue.reduce((s, r) => s + r.repairs, 0).toFixed(2)},${monthlyRevenue.reduce((s, r) => s + r.motos, 0).toFixed(2)},${monthlyRevenue.reduce((s, r) => s + r.accessories, 0).toFixed(2)},${totalRevenue.toFixed(2)}`);
+    lines.push("");
+
+    // Section 3: Detailed Repair Jobs
+    lines.push("=== REPAIR JOBS DETAIL ===");
+    lines.push("Job #,Invoice #,Customer,Phone,Vehicle,Registration,Description,Status,Payment,Date,Parts (£),Services (£),Labour (£),Total (£)");
+    filteredJobs.forEach(job => {
+      const cust = customers.find(c => c.id === job.customer_id);
+      const moto = motorcycles.find(m => m.id === job.motorcycle_id);
+      const jobParts = parts.filter(p => p.repair_job_id === job.id);
+      const partsT = jobParts.reduce((s, p) => s + p.quantity * Number(p.unit_price), 0);
+      const jobSvcs = services.filter(s => s.repair_job_id === job.id);
+      const svcsT = jobSvcs.reduce((s, sv) => s + Number(sv.price), 0);
+      const laborT = Number(job.labor_cost) || 0;
+      const total = getJobTotal(job);
+      const dateStr = job.payment_date || job.received_at;
+      lines.push([
+        job.job_number, job.invoice_number || "", escCSV(cust?.name || "Unknown"), cust?.phone || "",
+        escCSV(moto ? `${moto.make} ${moto.model}` : "Unknown"), moto?.registration || "",
+        escCSV(job.description), job.status, job.payment_status,
+        dateStr ? format(parseISO(dateStr), "dd/MM/yyyy") : "",
+        partsT.toFixed(2), svcsT.toFixed(2), laborT.toFixed(2), total.toFixed(2),
+      ].join(","));
+    });
+    lines.push("");
+
+    // Section 4: Parts & Services breakdown
+    lines.push("=== PARTS & SERVICES USED ===");
+    lines.push("Job #,Type,Description,Qty,Unit Price (£),Total (£)");
+    const filteredJobIds = new Set(filteredJobs.map(j => j.id));
+    parts.filter(p => filteredJobIds.has(p.repair_job_id)).forEach(p => {
+      const job = jobs.find(j => j.id === p.repair_job_id);
+      const item = stockItems.find(s => s.id === p.stock_item_id);
+      lines.push([job?.job_number || "", "Part", escCSV(item?.name || "Unknown"), p.quantity, Number(p.unit_price).toFixed(2), (p.quantity * Number(p.unit_price)).toFixed(2)].join(","));
+    });
+    services.filter(s => filteredJobIds.has(s.repair_job_id)).forEach(s => {
+      const job = jobs.find(j => j.id === s.repair_job_id);
+      lines.push([job?.job_number || "", "Service", escCSV(s.description), 1, Number(s.price).toFixed(2), Number(s.price).toFixed(2)].join(","));
+    });
+    lines.push("");
+
+    // Section 5: Top Parts
+    if (topParts.length > 0) {
+      lines.push("=== TOP PARTS ===");
+      lines.push("#,Part Name,Qty Used,Revenue (£)");
+      topParts.forEach((p, i) => lines.push(`${i + 1},${escCSV(p.name)},${p.quantity},${p.revenue.toFixed(2)}`));
+      lines.push("");
+    }
+
+    // Section 6: Jobs by Status
+    if (statusData.length > 0) {
+      lines.push("=== JOBS BY STATUS ===");
+      lines.push("Status,Count");
+      statusData.forEach(s => lines.push(`${s.name},${s.value}`));
+    }
+
+    const csv = lines.join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

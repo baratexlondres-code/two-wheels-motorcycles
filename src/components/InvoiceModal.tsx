@@ -325,18 +325,38 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
     return lines.join("\n");
   };
 
+  const formatPhoneForWhatsApp = (phone: string) => {
+    let cleaned = phone.replace(/[\s\-\(\)]/g, "");
+    // If starts with 0, assume UK and replace with 44
+    if (cleaned.startsWith("0")) cleaned = "44" + cleaned.substring(1);
+    // If doesn't start with +, add +
+    if (!cleaned.startsWith("+")) cleaned = "+" + cleaned;
+    return cleaned;
+  };
+
   const handleWhatsApp = async () => {
     await handleSaveLaborCost();
-    const phone = custPhone?.replace(/\s/g, "") || "";
+    const phone = custPhone ? formatPhoneForWhatsApp(custPhone) : "";
+    if (!phone) {
+      alert("No phone number available for this customer.");
+      return;
+    }
     const text = encodeURIComponent(invoiceText(includeVat));
-    const url = `https://wa.me/${phone}?text=${text}`;
-    // Use location.href for mobile compatibility
-    window.location.href = url;
+    const url = `https://wa.me/${phone.replace("+", "")}?text=${text}`;
+    window.open(url, "_blank");
   };
 
   const handleEmail = async () => {
-    // Open formatted invoice in new tab — user can share/print from there
-    await openInvoiceInNewTab(includeVat);
+    await handleSaveLaborCost();
+    const invoiceNum = data.job.invoice_number || data.job.job_number;
+    const subject = encodeURIComponent(`Invoice ${invoiceNum} — ${workshop.name}`);
+    const body = encodeURIComponent(invoiceText(includeVat));
+    if (custEmail) {
+      window.open(`mailto:${custEmail}?subject=${subject}&body=${body}`, "_blank");
+    } else {
+      // No email — open the formatted invoice in new tab for manual sharing
+      await openInvoiceInNewTab(includeVat);
+    }
   };
 
   return (
