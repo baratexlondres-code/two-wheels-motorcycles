@@ -32,7 +32,7 @@ const SettingsPage = () => {
   const handleSave = async () => {
     setSaving(true);
     const promises = Object.entries(settings).map(([key, value]) =>
-      supabase.from("workshop_settings").upsert({ key, value, updated_at: new Date().toISOString() })
+      supabase.from("workshop_settings").upsert({ key, value, updated_at: new Date().toISOString() } as any)
     );
     await Promise.all(promises);
     toast({ title: "Settings saved" });
