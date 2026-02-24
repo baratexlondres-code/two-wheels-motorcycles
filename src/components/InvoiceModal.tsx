@@ -548,7 +548,7 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
       const pdfBlob = await generatePdfBlob();
       const pdfFile = new File([pdfBlob], fileName, { type: "application/pdf" });
 
-      // Try Web Share API (works on mobile — lets user pick WhatsApp directly)
+      // Try Web Share API first (mobile — lets user pick WhatsApp and attach PDF)
       if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
         await navigator.share({
           title: `Invoice ${invoiceNum}`,
@@ -558,21 +558,28 @@ const InvoiceModal = ({ data, onClose, onPaid }: Props) => {
         return;
       }
     } catch (err) {
-      console.log("Share cancelled or failed, falling back to download + wa.me", err);
+      console.log("Share API not available or cancelled:", err);
     }
 
-    // Fallback: download PDF + open WhatsApp with text
+    // Fallback: download PDF automatically, then open WhatsApp with message + instruction
     try {
       const pdfBlob = await generatePdfBlob();
       const url = URL.createObjectURL(pdfBlob);
       const a = document.createElement("a");
       a.href = url;
       a.download = fileName;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
-    } catch {}
+      document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      console.error("PDF download failed:", e);
+    }
 
-    const text = encodeURIComponent(invoiceText(includeVat));
+    // Open WhatsApp with text summary + instruction to attach the downloaded PDF
+    const summary = invoiceText(includeVat);
+    const msgWithAttachNote = summary + `\n\n📎 _PDF invoice downloaded to your device — please attach it to this conversation._`;
+    const text = encodeURIComponent(msgWithAttachNote);
     const waUrl = `https://wa.me/${phone.replace("+", "")}?text=${text}`;
     window.open(waUrl, "_blank");
   };

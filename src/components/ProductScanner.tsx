@@ -192,7 +192,7 @@ const ProductScanner = ({ onResult, buttonLabel = "Scan Product" }: ProductScann
   return (
     <>
       {isMobile && (
-        <input ref={fileInputRef} type="file" accept="image/*" onChange={handleMobileCapture} className="hidden" />
+        <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleMobileCapture} className="hidden" />
       )}
 
       <button onClick={isMobile ? () => fileInputRef.current?.click() : handleDesktopOpen} type="button"
