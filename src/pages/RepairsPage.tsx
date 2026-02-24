@@ -1028,7 +1028,7 @@ const RepairsPage = () => {
           <InvoiceModal
             data={{
               job: {
-                id: job.id, job_number: job.job_number, description: job.description,
+                id: job.id, job_number: job.job_number, customer_id: job.customer_id, description: job.description,
                 estimated_cost: job.estimated_cost, final_cost: job.final_cost,
                 labor_cost: job.labor_cost, invoice_number: job.invoice_number,
                 payment_status: job.payment_status, received_at: job.received_at,
