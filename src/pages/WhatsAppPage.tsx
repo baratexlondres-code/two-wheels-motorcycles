@@ -103,7 +103,7 @@ const WhatsAppPage = () => {
 
   const saveSettings = async () => {
     const promises = Object.entries(waSettings).map(([key, value]) =>
-      supabase.from("whatsapp_settings").upsert({ key, value, updated_at: new Date().toISOString() })
+      supabase.from("whatsapp_settings").upsert({ key, value, updated_at: new Date().toISOString() } as any)
     );
     await Promise.all(promises);
     toast({ title: "Settings saved" });
