@@ -183,9 +183,9 @@ const CustomerDetailView = ({ customer, onBack, onEdit, onRefresh }: CustomerDet
               </div>
               <div className="text-right text-sm">
                 {r.final_cost != null ? (
-                  <p className="font-semibold text-foreground">€{r.final_cost.toFixed(2)}</p>
+                  <p className="font-semibold text-foreground">£{r.final_cost.toFixed(2)}</p>
                 ) : r.estimated_cost != null ? (
-                  <p className="text-muted-foreground">~€{r.estimated_cost.toFixed(2)}</p>
+                  <p className="text-muted-foreground">~£{r.estimated_cost.toFixed(2)}</p>
                 ) : null}
               </div>
             </div>
