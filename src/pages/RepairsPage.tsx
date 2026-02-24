@@ -827,8 +827,22 @@ const RepairsPage = () => {
                             return (
                               <div key={p.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
                                 <span className="text-foreground">{item?.name || p.notes || "Unknown"} × {p.quantity}</span>
-                                <div className="flex items-center gap-2">
-                                  <span className="text-muted-foreground">£{(p.quantity * Number(p.unit_price)).toFixed(2)}</span>
+                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                  <span className="text-muted-foreground">£</span>
+                                  <input
+                                    type="number"
+                                    step="0.01"
+                                    defaultValue={Number(p.unit_price) || ""}
+                                    placeholder="0.00"
+                                    onBlur={async (e) => {
+                                      const newPrice = parseFloat(e.target.value) || 0;
+                                      if (newPrice !== Number(p.unit_price)) {
+                                        await supabase.from("repair_parts").update({ unit_price: newPrice }).eq("id", p.id);
+                                        fetchData();
+                                      }
+                                    }}
+                                    className="w-20 bg-transparent text-foreground text-right focus:outline-none border-b border-border/50 focus:border-primary"
+                                  />
                                   <button onClick={() => handleRemovePart(p)} className="text-muted-foreground hover:text-destructive">
                                     <X className="h-3 w-3" />
                                   </button>
