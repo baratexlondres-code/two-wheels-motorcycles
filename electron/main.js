@@ -1,57 +1,30 @@
-const { app, BrowserWindow, shell } = require('electron');
-const path = require('path');
-const url = require('url');
-
-let mainWindow;
+const { app, BrowserWindow } = require("electron");
+const path = require("path");
 
 function createWindow() {
-  mainWindow = new BrowserWindow({
-    width: 1280,
+  const mainWindow = new BrowserWindow({
+    width: 1200,
     height: 800,
-    minWidth: 800,
-    minHeight: 600,
     webPreferences: {
-      nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true,
+      nodeIntegration: false,
     },
-    icon: path.join(__dirname, '../dist/favicon.ico'),
-    title: 'Two Wheels Motorcycles',
-    show: false,
   });
 
-  const startUrl = url.format({
-    pathname: path.join(__dirname, '../dist/index.html'),
-    protocol: 'file:',
-    slashes: true,
-  });
+  if (app.isPackaged) {
+    // PRODUÇÃO (instalador)
+    mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
+  } else {
+    // DESENVOLVIMENTO
+    mainWindow.loadURL("http://localhost:5173");
+  }
 
-  mainWindow.loadURL(startUrl);
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
-
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
+  // Abrir DevTools automaticamente (pode remover depois)
+  mainWindow.webContents.openDevTools();
 }
 
 app.whenReady().then(createWindow);
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
-
-app.on('activate', () => {
-  if (mainWindow === null) {
-    createWindow();
-  }
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
 });
