@@ -167,7 +167,7 @@ const CustomerDetailView = ({ customer, onBack, onEdit, onRefresh }: CustomerDet
           {repairs.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">No repair history</p>
           ) : repairs.map((r) => (
-          <div key={r.id} onPointerDown={() => navigate(`/repairs?job_id=${r.id}`)} className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/50 active:bg-secondary/70 transition-colors">
+          <button key={r.id} type="button" onClick={() => navigate(`/repairs?job_id=${r.id}`)} className="flex w-full items-center justify-between p-4 cursor-pointer hover:bg-secondary/50 active:bg-secondary/70 transition-colors text-left">
               <div>
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-primary hover:underline">#{r.job_number}</p>
@@ -188,7 +188,7 @@ const CustomerDetailView = ({ customer, onBack, onEdit, onRefresh }: CustomerDet
                   <p className="text-muted-foreground">£{r.estimated_cost.toFixed(2)}</p>
                 ) : null}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>
