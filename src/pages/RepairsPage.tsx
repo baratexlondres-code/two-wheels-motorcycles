@@ -140,6 +140,19 @@ const RepairsPage = () => {
     }
   }, [customers, searchParams]);
 
+  // Auto-expand job from URL param (e.g. /repairs?job_id=xxx)
+  useEffect(() => {
+    const jobId = searchParams.get("job_id");
+    if (jobId && jobs.length > 0) {
+      setExpandedId(jobId);
+      setSearchParams({}, { replace: true });
+      // Scroll to the job after a short delay
+      setTimeout(() => {
+        document.getElementById(`job-${jobId}`)?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 200);
+    }
+  }, [jobs, searchParams]);
+
   const customerMotos = motorcycles.filter((m) => m.customer_id === form.customer_id);
   const brandModels = models.filter((m) => m.brand_id === form.brand_id);
 
@@ -652,7 +665,7 @@ const RepairsPage = () => {
             const servicesTotal = services.reduce((sum, s) => sum + Number(s.price), 0);
 
             return (
-              <motion.div key={job.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              <motion.div key={job.id} id={`job-${job.id}`} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                 className="rounded-xl border border-border bg-card overflow-hidden">
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
