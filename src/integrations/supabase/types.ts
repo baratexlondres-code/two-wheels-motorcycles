@@ -360,9 +360,11 @@ export type Database = {
           labor_cost: number | null
           motorcycle_id: string
           notes: string | null
+          parts_cost: number | null
           payment_date: string | null
           payment_status: string
           received_at: string
+          services_cost: number | null
           status: string
           updated_at: string
         }
@@ -381,9 +383,11 @@ export type Database = {
           labor_cost?: number | null
           motorcycle_id: string
           notes?: string | null
+          parts_cost?: number | null
           payment_date?: string | null
           payment_status?: string
           received_at?: string
+          services_cost?: number | null
           status?: string
           updated_at?: string
         }
@@ -402,9 +406,11 @@ export type Database = {
           labor_cost?: number | null
           motorcycle_id?: string
           notes?: string | null
+          parts_cost?: number | null
           payment_date?: string | null
           payment_status?: string
           received_at?: string
+          services_cost?: number | null
           status?: string
           updated_at?: string
         }
