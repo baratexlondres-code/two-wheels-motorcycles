@@ -997,6 +997,61 @@ const RepairsPage = () => {
                       )}
                     </div>
 
+                    {/* Costs Summary */}
+                    <div className="rounded-lg border border-border bg-card p-3 space-y-2">
+                      <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Costs Summary</label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-muted-foreground">Parts</span>
+                          <span className="text-foreground font-medium">£{partsTotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <span className="text-muted-foreground">Services</span>
+                          <span className="text-foreground font-medium">£{servicesTotal.toFixed(2)}</span>
+                        </div>
+                        <div className="flex flex-col gap-0.5" onClick={(e) => e.stopPropagation()}>
+                          <span className="text-muted-foreground">Labour</span>
+                          <div className="flex items-center gap-0.5">
+                            <span className="text-muted-foreground">£</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              defaultValue={Number(job.labor_cost) || ""}
+                              placeholder="0.00"
+                              onBlur={async (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                if (val !== Number(job.labor_cost)) {
+                                  await supabase.from("repair_jobs").update({ labor_cost: val }).eq("id", job.id);
+                                  fetchData();
+                                }
+                              }}
+                              className="w-20 bg-transparent text-foreground font-medium focus:outline-none border-b border-border/50 focus:border-primary"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-0.5" onClick={(e) => e.stopPropagation()}>
+                          <span className="text-muted-foreground">Final Cost</span>
+                          <div className="flex items-center gap-0.5">
+                            <span className="text-muted-foreground">£</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              defaultValue={Number(job.final_cost) || ""}
+                              placeholder={(partsTotal + servicesTotal + (Number(job.labor_cost) || 0)).toFixed(2)}
+                              onBlur={async (e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                if (val !== Number(job.final_cost)) {
+                                  await supabase.from("repair_jobs").update({ final_cost: val }).eq("id", job.id);
+                                  fetchData();
+                                }
+                              }}
+                              className="w-20 bg-transparent text-foreground font-semibold focus:outline-none border-b border-border/50 focus:border-primary"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div onClick={(e) => e.stopPropagation()}>
                       <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Notes</label>
                       <textarea defaultValue={job.notes || ""} onBlur={(e) => updateField(job.id, "notes", e.target.value)} rows={2}
