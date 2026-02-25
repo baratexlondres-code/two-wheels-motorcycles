@@ -678,10 +678,10 @@ const RepairsPage = () => {
                         <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${statusInfo.color}`}>{statusInfo.label}</span>
                       </div>
                       <a
-                        href={`/customers?id=${job.customer_id}`}
+                        href={`#/customers?id=${job.customer_id}`}
                         className="block text-sm font-medium text-primary hover:underline text-left py-1"
                         style={{ minHeight: 44, display: "flex", alignItems: "center" }}
-                        onClick={(e) => {
+                        onPointerDown={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
                           navigate(`/customers?id=${job.customer_id}`);
@@ -708,7 +708,7 @@ const RepairsPage = () => {
                         <span className="text-sm font-medium text-foreground hidden sm:inline">£{displayVal.toFixed(2)}</span>
                       ) : null;
                     })()}
-                    <button onClick={() => setExpandedId(isExpanded ? null : job.id)} className="rounded p-2 text-muted-foreground hover:bg-secondary" style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <button onPointerDown={() => setExpandedId(isExpanded ? null : job.id)} className="rounded p-2 text-muted-foreground hover:bg-secondary" style={{ minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
                     </button>
                   </div>

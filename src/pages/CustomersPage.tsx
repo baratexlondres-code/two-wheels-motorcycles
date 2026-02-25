@@ -270,7 +270,7 @@ const CustomersPage = () => {
             const motos = motorcycles.filter((m) => m.customer_id === c.id);
             return (
               <motion.div key={c.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                onClick={() => setSelectedCustomer(c)}
+                onPointerDown={() => setSelectedCustomer(c)}
                 className="rounded-xl border border-border bg-card overflow-hidden cursor-pointer hover:border-primary/50 transition-colors">
                 <div className="flex items-center justify-between p-4">
                   <div className="flex items-center gap-4">
