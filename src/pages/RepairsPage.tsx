@@ -840,13 +840,15 @@ const RepairsPage = () => {
                             return (
                               <div key={p.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
                                 <span className="text-foreground">{item?.name || p.notes || "Unknown"} × {p.quantity}</span>
-                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                                   <span className="text-muted-foreground">£</span>
                                   <input
                                     type="number"
+                                    inputMode="decimal"
                                     step="0.01"
                                     defaultValue={Number(p.unit_price) || ""}
                                     placeholder="0.00"
+                                    onFocus={(e) => e.stopPropagation()}
                                     onBlur={async (e) => {
                                       const newPrice = parseFloat(e.target.value) || 0;
                                       if (newPrice !== Number(p.unit_price)) {
@@ -854,9 +856,9 @@ const RepairsPage = () => {
                                         fetchData();
                                       }
                                     }}
-                                    className="w-20 bg-transparent text-foreground text-right focus:outline-none border-b border-border/50 focus:border-primary"
+                                    className="w-20 bg-transparent text-foreground text-right focus:outline-none border-b border-border/50 focus:border-primary min-h-[36px]"
                                   />
-                                  <button onClick={() => handleRemovePart(p)} className="text-muted-foreground hover:text-destructive">
+                                  <button onClick={(e) => { e.stopPropagation(); handleRemovePart(p); }} className="text-muted-foreground hover:text-destructive p-1 min-h-[36px] min-w-[36px] flex items-center justify-center">
                                     <X className="h-3 w-3" />
                                   </button>
                                 </div>
@@ -866,13 +868,15 @@ const RepairsPage = () => {
                           {manualParts.map((s) => (
                             <div key={s.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
                               <span className="text-foreground">{s.description.replace(/^\[PART\]\s*/, "")}</span>
-                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                                 <span className="text-muted-foreground">£</span>
                                 <input
                                   type="number"
+                                  inputMode="decimal"
                                   step="0.01"
                                   defaultValue={Number(s.price) || ""}
                                   placeholder="0.00"
+                                  onFocus={(e) => e.stopPropagation()}
                                   onBlur={async (e) => {
                                     const newPrice = parseFloat(e.target.value) || 0;
                                     if (newPrice !== Number(s.price)) {
@@ -880,9 +884,9 @@ const RepairsPage = () => {
                                       fetchData();
                                     }
                                   }}
-                                  className="w-20 bg-transparent text-foreground text-right focus:outline-none border-b border-border/50 focus:border-primary"
+                                  className="w-20 bg-transparent text-foreground text-right focus:outline-none border-b border-border/50 focus:border-primary min-h-[36px]"
                                 />
-                                <button onClick={() => handleRemoveService(s.id)} className="text-muted-foreground hover:text-destructive">
+                                <button onClick={(e) => { e.stopPropagation(); handleRemoveService(s.id); }} className="text-muted-foreground hover:text-destructive p-1 min-h-[36px] min-w-[36px] flex items-center justify-center">
                                   <X className="h-3 w-3" />
                                 </button>
                               </div>
@@ -971,13 +975,15 @@ const RepairsPage = () => {
                           {services.map((s) => (
                             <div key={s.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
                               <span className="text-foreground">{s.description}</span>
-                              <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                                 <span className="text-muted-foreground">£</span>
                                 <input
                                   type="number"
+                                  inputMode="decimal"
                                   step="0.01"
                                   defaultValue={Number(s.price) || ""}
                                   placeholder="0.00"
+                                  onFocus={(e) => e.stopPropagation()}
                                   onBlur={async (e) => {
                                     const newPrice = parseFloat(e.target.value) || 0;
                                     if (newPrice !== Number(s.price)) {
@@ -985,9 +991,9 @@ const RepairsPage = () => {
                                       fetchData();
                                     }
                                   }}
-                                  className="w-20 bg-transparent text-foreground text-right focus:outline-none border-b border-border/50 focus:border-primary"
+                                  className="w-20 bg-transparent text-foreground text-right focus:outline-none border-b border-border/50 focus:border-primary min-h-[36px]"
                                 />
-                                <button onClick={() => handleRemoveService(s.id)} className="text-muted-foreground hover:text-destructive">
+                                <button onClick={(e) => { e.stopPropagation(); handleRemoveService(s.id); }} className="text-muted-foreground hover:text-destructive p-1 min-h-[36px] min-w-[36px] flex items-center justify-center">
                                   <X className="h-3 w-3" />
                                 </button>
                               </div>
