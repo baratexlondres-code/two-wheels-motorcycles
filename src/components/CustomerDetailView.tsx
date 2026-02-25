@@ -167,10 +167,10 @@ const CustomerDetailView = ({ customer, onBack, onEdit, onRefresh }: CustomerDet
           {repairs.length === 0 ? (
             <p className="p-4 text-sm text-muted-foreground">No repair history</p>
           ) : repairs.map((r) => (
-            <div key={r.id} className="flex items-center justify-between p-4">
+          <div key={r.id} onClick={() => navigate(`/repairs?job_id=${r.id}`)} className="flex items-center justify-between p-4 cursor-pointer hover:bg-secondary/50 transition-colors">
               <div>
                 <div className="flex items-center gap-2">
-                  <p className="font-medium text-foreground">#{r.job_number}</p>
+                  <p className="font-medium text-primary hover:underline">#{r.job_number}</p>
                   <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusColors[r.status] || "bg-muted text-muted-foreground"}`}>
                     {r.status}
                   </span>
