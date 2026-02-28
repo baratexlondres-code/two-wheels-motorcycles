@@ -65,7 +65,7 @@ const Dashboard = () => {
       const allJobs = jobs || [];
       setJobCounts({
         total: allJobs.length,
-        active: allJobs.filter((j: any) => !["delivered", "cancelled"].includes(j.status)).length,
+        active: allJobs.filter((j: any) => !["delivered", "cancelled", "ready"].includes(j.status)).length,
         waitingParts: allJobs.filter((j: any) => j.status === "waiting_parts").length,
         completedToday: allJobs.filter((j: any) => j.completed_at?.startsWith(today)).length,
         lowStock: low.length,
