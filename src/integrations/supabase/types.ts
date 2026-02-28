@@ -121,6 +121,30 @@ export type Database = {
         }
         Relationships: []
       }
+      mechanics: {
+        Row: {
+          active: boolean
+          created_at: string
+          default_commission_percentage: number
+          full_name: string
+          id: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          default_commission_percentage?: number
+          full_name: string
+          id?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          default_commission_percentage?: number
+          full_name?: string
+          id?: string
+        }
+        Relationships: []
+      }
       motorcycle_brands: {
         Row: {
           active_status: boolean
@@ -352,18 +376,21 @@ export type Database = {
           delivered_at: string | null
           description: string
           diagnosis: string | null
+          estimated_completion_date: string | null
           estimated_cost: number | null
           final_cost: number | null
           id: string
           invoice_number: string | null
           job_number: string
           labor_cost: number | null
+          locked: boolean
           motorcycle_id: string
           notes: string | null
           parts_cost: number | null
           payment_date: string | null
           payment_status: string
           received_at: string
+          service_order_number: number | null
           services_cost: number | null
           status: string
           updated_at: string
@@ -375,18 +402,21 @@ export type Database = {
           delivered_at?: string | null
           description: string
           diagnosis?: string | null
+          estimated_completion_date?: string | null
           estimated_cost?: number | null
           final_cost?: number | null
           id?: string
           invoice_number?: string | null
           job_number: string
           labor_cost?: number | null
+          locked?: boolean
           motorcycle_id: string
           notes?: string | null
           parts_cost?: number | null
           payment_date?: string | null
           payment_status?: string
           received_at?: string
+          service_order_number?: number | null
           services_cost?: number | null
           status?: string
           updated_at?: string
@@ -398,18 +428,21 @@ export type Database = {
           delivered_at?: string | null
           description?: string
           diagnosis?: string | null
+          estimated_completion_date?: string | null
           estimated_cost?: number | null
           final_cost?: number | null
           id?: string
           invoice_number?: string | null
           job_number?: string
           labor_cost?: number | null
+          locked?: boolean
           motorcycle_id?: string
           notes?: string | null
           parts_cost?: number | null
           payment_date?: string | null
           payment_status?: string
           received_at?: string
+          service_order_number?: number | null
           services_cost?: number | null
           status?: string
           updated_at?: string
@@ -475,27 +508,46 @@ export type Database = {
       }
       repair_services: {
         Row: {
+          commission_percentage: number
+          commission_value: number
           created_at: string
           description: string
           id: string
+          mechanic_id: string | null
           price: number
           repair_job_id: string
+          service_type: string
         }
         Insert: {
+          commission_percentage?: number
+          commission_value?: number
           created_at?: string
           description: string
           id?: string
+          mechanic_id?: string | null
           price?: number
           repair_job_id: string
+          service_type?: string
         }
         Update: {
+          commission_percentage?: number
+          commission_value?: number
           created_at?: string
           description?: string
           id?: string
+          mechanic_id?: string | null
           price?: number
           repair_job_id?: string
+          service_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "repair_services_mechanic_id_fkey"
+            columns: ["mechanic_id"]
+            isOneToOne: false
+            referencedRelation: "mechanics"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "repair_services_repair_job_id_fkey"
             columns: ["repair_job_id"]

@@ -21,6 +21,7 @@ import CustomersPage from "@/pages/CustomersPage";
 import InvoicesPage from "@/pages/InvoicesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
+import CommissionReportPage from "@/pages/CommissionReportPage";
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from "react";
 import { UserRole } from "@/contexts/RoleContext";
@@ -91,6 +92,7 @@ const AppContent = () => {
             <Route path="/customers" element={<CustomersPage />} />
             <Route path="/invoices" element={<OwnerRoute><InvoicesPage /></OwnerRoute>} />
             <Route path="/reports" element={<OwnerRoute><ReportsPage /></OwnerRoute>} />
+            <Route path="/commissions" element={<OwnerRoute><CommissionReportPage /></OwnerRoute>} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/whatsapp" element={<OwnerRoute><WhatsAppPage /></OwnerRoute>} />
             <Route path="*" element={<NotFound />} />
