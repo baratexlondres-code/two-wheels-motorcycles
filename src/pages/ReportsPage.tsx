@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { BarChart3, TrendingUp, Wrench, Package, Calendar, Bike, ShoppingCart, Download, FileText, Table2, Eye } from "lucide-react";
 import ReportDetailModal from "@/components/ReportDetailModal";
+import ReportPreviewModal from "@/components/ReportPreviewModal";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,6 +58,7 @@ const ReportsPage = () => {
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [loading, setLoading] = useState(true);
   const [detailType, setDetailType] = useState<"total" | "repairs" | "motos" | "accessories" | "motosSold" | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date(); d.setMonth(d.getMonth() - 6);
     return format(d, "yyyy-MM-dd");
@@ -385,6 +387,10 @@ const ReportsPage = () => {
               className="bg-transparent text-sm text-foreground focus:outline-none w-[130px] cursor-pointer [color-scheme:dark]" />
           </div>
           <div className="flex gap-1">
+            <button onClick={() => setShowPreview(true)} title="Preview Report"
+              className="flex items-center gap-1.5 rounded-lg border border-primary/50 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20 transition-colors">
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </button>
             <button onClick={exportPDF} title="Export PDF"
               className="flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground hover:border-primary/30 transition-colors">
               <FileText className="h-3.5 w-3.5" /> PDF
@@ -620,6 +626,31 @@ const ReportsPage = () => {
           motoSales={filteredMotoSales}
           accSales={filteredAccSales}
           getJobTotal={getJobTotal}
+        />
+      )}
+
+      {/* Report Preview */}
+      {showPreview && (
+        <ReportPreviewModal
+          onClose={() => setShowPreview(false)}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          jobs={filteredJobs}
+          parts={parts}
+          services={services}
+          stockItems={stockItems}
+          customers={customers}
+          motorcycles={motorcycles}
+          motoSales={filteredMotoSales}
+          accSales={filteredAccSales}
+          monthlyRevenue={monthlyRevenue}
+          getJobTotal={getJobTotal}
+          totalRevenue={totalRevenue}
+          repairRevenue={repairRevenue}
+          motoRevenue={motoRevenue}
+          motoProfit={motoProfit}
+          accRevenue={accRevenue}
+          onExportPDF={exportPDF}
         />
       )}
     </div>
