@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { BarChart3, TrendingUp, Wrench, Package, Calendar, Bike, ShoppingCart, Download, FileText, Table2 } from "lucide-react";
+import { BarChart3, TrendingUp, Wrench, Package, Calendar, Bike, ShoppingCart, Download, FileText, Table2, Eye } from "lucide-react";
+import ReportDetailModal from "@/components/ReportDetailModal";
 import { toast } from "sonner";
 import BackButton from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,6 +56,7 @@ const ReportsPage = () => {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [loading, setLoading] = useState(true);
+  const [detailType, setDetailType] = useState<"total" | "repairs" | "motos" | "accessories" | "motosSold" | null>(null);
   const [dateFrom, setDateFrom] = useState(() => {
     const d = new Date(); d.setMonth(d.getMonth() - 6);
     return format(d, "yyyy-MM-dd");
@@ -398,19 +400,23 @@ const ReportsPage = () => {
       {/* KPI Cards */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {[
-          { icon: TrendingUp, label: "Total Revenue", value: `£${totalRevenue.toFixed(2)}`, sub: `${totalJobs} total jobs`, colorClass: "text-green-500" },
-          { icon: Wrench, label: "Repairs", value: `£${repairRevenue.toFixed(2)}`, sub: `${filteredJobs.filter(j => j.payment_status === "paid").length} paid`, colorClass: "text-primary" },
-          { icon: Bike, label: "Motorcycle Sales", value: `£${motoRevenue.toFixed(2)}`, sub: `Profit: £${motoProfit.toFixed(2)}`, colorClass: "text-blue-400" },
-          { icon: ShoppingCart, label: "Accessories", value: `£${accRevenue.toFixed(2)}`, sub: `${filteredAccSales.length} sales`, colorClass: "text-amber-400" },
-          { icon: BarChart3, label: "Motos Sold", value: `${filteredMotoSales.length}`, sub: "motorcycles", colorClass: "text-green-400" },
+          { icon: TrendingUp, label: "Total Revenue", value: `£${totalRevenue.toFixed(2)}`, sub: `${totalJobs} total jobs`, colorClass: "text-green-500", detail: "total" as const },
+          { icon: Wrench, label: "Repairs", value: `£${repairRevenue.toFixed(2)}`, sub: `${filteredJobs.filter(j => j.payment_status === "paid").length} paid`, colorClass: "text-primary", detail: "repairs" as const },
+          { icon: Bike, label: "Motorcycle Sales", value: `£${motoRevenue.toFixed(2)}`, sub: `Profit: £${motoProfit.toFixed(2)}`, colorClass: "text-blue-400", detail: "motos" as const },
+          { icon: ShoppingCart, label: "Accessories", value: `£${accRevenue.toFixed(2)}`, sub: `${filteredAccSales.length} sales`, colorClass: "text-amber-400", detail: "accessories" as const },
+          { icon: BarChart3, label: "Motos Sold", value: `${filteredMotoSales.length}`, sub: "motorcycles", colorClass: "text-green-400", detail: "motosSold" as const },
         ].map((kpi) => (
-          <div key={kpi.label} className="rounded-xl border border-border bg-card p-4 hover:border-primary/30 transition-colors">
+          <div key={kpi.label} onClick={() => setDetailType(kpi.detail)}
+            className="rounded-xl border border-border bg-card p-4 hover:border-primary/30 transition-colors cursor-pointer group">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{kpi.label}</span>
               <kpi.icon className={`h-4 w-4 ${kpi.colorClass}`} />
             </div>
             <p className="text-xl font-bold text-foreground">{kpi.value}</p>
-            <p className="text-[11px] text-muted-foreground mt-0.5">{kpi.sub}</p>
+            <div className="flex items-center justify-between mt-0.5">
+              <p className="text-[11px] text-muted-foreground">{kpi.sub}</p>
+              <Eye className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+            </div>
           </div>
         ))}
       </div>
@@ -600,6 +606,22 @@ const ReportsPage = () => {
           <p className="py-8 text-center text-sm text-muted-foreground">No revenue data for this period</p>
         )}
       </div>
+      {/* Detail Modal */}
+      {detailType && (
+        <ReportDetailModal
+          type={detailType}
+          onClose={() => setDetailType(null)}
+          jobs={filteredJobs}
+          parts={parts}
+          services={services}
+          stockItems={stockItems}
+          customers={customers}
+          motorcycles={motorcycles}
+          motoSales={filteredMotoSales}
+          accSales={filteredAccSales}
+          getJobTotal={getJobTotal}
+        />
+      )}
     </div>
   );
 };
