@@ -944,6 +944,37 @@ const RepairsPage = () => {
                               className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
                           </div>
                           <div className="max-h-40 overflow-y-auto rounded border border-border bg-card">
+                            {/* History matches first */}
+                            {serviceSearch.trim() && (() => {
+                              const q = serviceSearch.toLowerCase();
+                              const catalogNames = serviceCatalog.map((s) => s.name.toLowerCase());
+                              const histMatches = savedServiceHistory.filter((h) =>
+                                h.toLowerCase().includes(q) && !catalogNames.includes(h.toLowerCase())
+                              );
+                              return histMatches.slice(0, 5).map((h) => {
+                                const selected = pendingServices.find((p) => p.description.toLowerCase() === h.toLowerCase());
+                                return (
+                                  <div key={`hist-${h}`} onClick={() => {
+                                    if (selected) {
+                                      setPendingServices((prev) => prev.filter((p) => p.description.toLowerCase() !== h.toLowerCase()));
+                                    } else {
+                                      setPendingServices((prev) => [...prev, { description: h, price: 0 }]);
+                                    }
+                                  }}
+                                    className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0 ${selected ? "bg-primary/10" : ""}`}>
+                                    <div className="flex items-center gap-2">
+                                      <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center ${selected ? "bg-primary border-primary" : "border-border"}`}>
+                                        {selected && <CheckCircle className="h-2.5 w-2.5 text-primary-foreground" />}
+                                      </div>
+                                      <div>
+                                        <span className="text-foreground">{h}</span>
+                                        <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary text-[10px] ml-1.5">saved</span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              });
+                            })()}
                             {serviceCatalog
                               .filter((s) => serviceSearch === "" || s.name.toLowerCase().includes(serviceSearch.toLowerCase()) || s.category.toLowerCase().includes(serviceSearch.toLowerCase()))
                               .map((s) => {
