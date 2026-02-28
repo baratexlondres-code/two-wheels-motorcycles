@@ -380,6 +380,9 @@ const RepairsPage = () => {
   const handleAddServices = async (jobId: string) => {
     const valid = pendingServices.filter((s) => s.description.trim() && s.price > 0);
     if (valid.length === 0) { toast({ title: "Add at least one service with description and price", variant: "destructive" }); return; }
+    // Save custom service descriptions to history for autocomplete
+    const customDescs = valid.map((s) => s.description.trim()).filter(Boolean);
+    addToServiceHistory(customDescs);
     for (const svc of valid) {
       await supabase.from("repair_services").insert({
         repair_job_id: jobId, description: svc.description.trim(), price: svc.price,
@@ -760,18 +763,39 @@ const RepairsPage = () => {
                                 <button onClick={() => setPartSearch("")} className="text-muted-foreground hover:text-foreground shrink-0"><X className="h-3 w-3" /></button>
                               )}
                             </div>
-                            {/* Autocomplete dropdown from saved parts history */}
+                            {/* Autocomplete dropdown from saved parts history + stock items */}
                             {partSearch.trim().length > 0 && (() => {
                               const savedParts: string[] = (() => { try { return JSON.parse(localStorage.getItem("tw_parts_history") || "[]"); } catch { return []; } })();
-                              const matches = savedParts.filter((p) => p.toLowerCase().includes(partSearch.toLowerCase()) && p.toLowerCase() !== partSearch.toLowerCase());
-                              if (matches.length === 0) return null;
+                              const historyMatches = savedParts.filter((p) => p.toLowerCase().includes(partSearch.toLowerCase()) && p.toLowerCase() !== partSearch.toLowerCase());
+                              const stockMatches = stockItems.filter((s) => 
+                                (s.name.toLowerCase().includes(partSearch.toLowerCase()) || (s.sku && s.sku.toLowerCase().includes(partSearch.toLowerCase())))
+                                && !historyMatches.some((h) => h.toLowerCase() === s.name.toLowerCase())
+                              );
+                              if (historyMatches.length === 0 && stockMatches.length === 0) return null;
                               return (
-                                <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5">
-                                  {matches.slice(0, 6).map((p) => (
-                                    <div key={p} onClick={() => setPartSearch(p)}
+                                <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-48 overflow-y-auto">
+                                  {historyMatches.slice(0, 4).map((p) => (
+                                    <div key={`h-${p}`} onClick={() => setPartSearch(p)}
                                       className="flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0">
                                       <span className="text-foreground">{p}</span>
                                       <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary text-[10px]">saved</span>
+                                    </div>
+                                  ))}
+                                  {stockMatches.slice(0, 6).map((s) => (
+                                    <div key={`s-${s.id}`} onClick={() => {
+                                      setPartSearch(s.name);
+                                      setPendingParts((prev) => {
+                                        const exists = prev.find((p) => p.stock_item_id === "__manual__");
+                                        if (exists) return prev.map((p) => p.stock_item_id === "__manual__" ? { ...p, unit_price: Number(s.sell_price), name: s.name } : p);
+                                        return [...prev, { stock_item_id: "__manual__", quantity: 1, unit_price: Number(s.sell_price), name: s.name }];
+                                      });
+                                    }}
+                                      className="flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0">
+                                      <div>
+                                        <span className="text-foreground">{s.name}</span>
+                                        {s.sku && <span className="text-muted-foreground ml-1">({s.sku})</span>}
+                                      </div>
+                                      <span className="rounded bg-chart-blue/10 px-1.5 py-0.5 text-chart-blue text-[10px]">stock · £{Number(s.sell_price).toFixed(2)}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -950,18 +974,38 @@ const RepairsPage = () => {
                             <div className="space-y-1">
                               <p className="text-xs font-semibold text-foreground">{pendingServices.length} selected:</p>
                               {pendingServices.map((ps, idx) => (
-                                <div key={idx} className="flex items-center gap-2 rounded bg-primary/5 px-3 py-1.5 text-xs">
-                                  <input value={ps.description} onChange={(e) => updatePendingServiceDesc(idx, e.target.value)}
-                                    placeholder="Description"
-                                    className="flex-1 bg-transparent text-foreground focus:outline-none" />
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-muted-foreground">£</span>
-                                    <input type="number" step="0.01" value={ps.price || ""} onChange={(e) => updatePendingServicePrice(ps.description, parseFloat(e.target.value) || 0)}
-                                      className="w-16 bg-transparent text-foreground text-right focus:outline-none" />
+                                <div key={idx} className="relative">
+                                  <div className="flex items-center gap-2 rounded bg-primary/5 px-3 py-1.5 text-xs">
+                                    <input value={ps.description} onChange={(e) => updatePendingServiceDesc(idx, e.target.value)}
+                                      placeholder="Description"
+                                      className="flex-1 bg-transparent text-foreground focus:outline-none" />
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-muted-foreground">£</span>
+                                      <input type="number" step="0.01" value={ps.price || ""} onChange={(e) => updatePendingServicePrice(ps.description, parseFloat(e.target.value) || 0)}
+                                        className="w-16 bg-transparent text-foreground text-right focus:outline-none" />
+                                    </div>
+                                    <button onClick={() => removePendingService(idx)} className="text-muted-foreground hover:text-destructive">
+                                      <X className="h-3 w-3" />
+                                    </button>
                                   </div>
-                                  <button onClick={() => removePendingService(idx)} className="text-muted-foreground hover:text-destructive">
-                                    <X className="h-3 w-3" />
-                                  </button>
+                                  {/* Service history autocomplete */}
+                                  {ps.description.trim().length > 0 && (() => {
+                                    const matches = savedServiceHistory.filter((h) => 
+                                      h.toLowerCase().includes(ps.description.toLowerCase()) && h.toLowerCase() !== ps.description.toLowerCase()
+                                    );
+                                    if (matches.length === 0) return null;
+                                    return (
+                                      <div className="absolute z-10 left-0 right-0 rounded border border-border bg-card shadow-lg mt-0.5 max-h-32 overflow-y-auto">
+                                        {matches.slice(0, 5).map((m) => (
+                                          <div key={m} onClick={() => updatePendingServiceDesc(idx, m)}
+                                            className="flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0">
+                                            <span className="text-foreground">{m}</span>
+                                            <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary text-[10px]">saved</span>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               ))}
                             </div>
