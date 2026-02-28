@@ -390,6 +390,7 @@ const RepairsPage = () => {
   };
 
   const handleRemoveService = async (serviceId: string) => {
+    if (!window.confirm("Are you sure you want to remove this service?")) return;
     await supabase.from("repair_services").delete().eq("id", serviceId);
     toast({ title: "Service removed" }); fetchData();
   };
