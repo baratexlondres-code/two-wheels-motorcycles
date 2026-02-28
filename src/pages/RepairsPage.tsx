@@ -702,8 +702,10 @@ const RepairsPage = () => {
                       const manualPartsTotal = jobSvcs.filter((s) => s.description.startsWith("[PART]")).reduce((s, sv) => s + Number(sv.price), 0);
                       const svcsTotal = jobSvcs.filter((s) => !s.description.startsWith("[PART]")).reduce((s, sv) => s + Number(sv.price), 0);
                       const partsTotal = stockPartsTotal + manualPartsTotal;
+                      const effectiveParts = Number((job as any).parts_cost) || partsTotal;
+                      const effectiveSvcs = Number((job as any).services_cost) || svcsTotal;
                       const labor = Number(job.labor_cost) || 0;
-                      const calculated = partsTotal + svcsTotal + labor;
+                      const calculated = effectiveParts + effectiveSvcs + labor;
                       const displayVal = Number(job.final_cost) > 0 ? Number(job.final_cost) : calculated > 0 ? calculated : Number(job.estimated_cost) || 0;
                       return displayVal > 0 ? (
                         <span className="text-sm font-medium text-foreground hidden sm:inline">£{displayVal.toFixed(2)}</span>
@@ -1079,7 +1081,7 @@ const RepairsPage = () => {
                               type="number"
                               step="0.01"
                               defaultValue={job.final_cost != null && Number(job.final_cost) !== 0 ? Number(job.final_cost) : ""}
-                              placeholder={(partsTotal + servicesTotal + (Number(job.labor_cost) || 0)).toFixed(2)}
+                              placeholder={((Number((job as any).parts_cost) || partsTotal) + (Number((job as any).services_cost) || servicesTotal) + (Number(job.labor_cost) || 0)).toFixed(2)}
                               onBlur={async (e) => {
                                 const raw = e.target.value.trim();
                                 const val = raw === "" ? null : parseFloat(raw) || null;
