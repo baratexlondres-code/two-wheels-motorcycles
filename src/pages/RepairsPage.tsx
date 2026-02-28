@@ -418,7 +418,7 @@ const RepairsPage = () => {
           <BackButton />
           <div>
             <h1 className="text-2xl font-bold text-foreground">Repairs</h1>
-            <p className="text-sm text-muted-foreground">{jobs.length} total jobs • {jobs.filter((j) => !["delivered", "cancelled"].includes(j.status)).length} active</p>
+            <p className="text-sm text-muted-foreground">{jobs.length} total jobs • {jobs.filter((j) => !["delivered", "cancelled", "ready"].includes(j.status)).length} active</p>
           </div>
         </div>
         <div className="flex gap-2">
