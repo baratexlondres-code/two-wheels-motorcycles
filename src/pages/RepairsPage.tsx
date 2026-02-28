@@ -1073,13 +1073,15 @@ const RepairsPage = () => {
                           <div className="flex items-center gap-0.5">
                             <span className="text-muted-foreground">£</span>
                             <input
+                              key={`final-cost-${job.id}-${job.final_cost ?? "null"}`}
                               type="number"
                               step="0.01"
-                              defaultValue={Number(job.final_cost) || ""}
+                              defaultValue={job.final_cost ?? ""}
                               placeholder={(partsTotal + servicesTotal + (Number(job.labor_cost) || 0)).toFixed(2)}
                               onBlur={async (e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                if (val !== Number(job.final_cost)) {
+                                const raw = e.target.value.trim();
+                                const val = raw === "" ? null : parseFloat(raw);
+                                if (val !== job.final_cost) {
                                   await supabase.from("repair_jobs").update({ final_cost: val }).eq("id", job.id);
                                   fetchData();
                                 }
