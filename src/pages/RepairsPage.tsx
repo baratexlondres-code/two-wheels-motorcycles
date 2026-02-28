@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Search, Wrench, X, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, Truck, Eye, Settings2, Package, FileText, PoundSterling, Lock, Users, Star } from "lucide-react";
+import { Plus, Search, Wrench, X, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, Truck, Eye, Settings2, Package, FileText, PoundSterling, Lock, Unlock, Users, Star } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import PlateScanner from "@/components/PlateScanner";
 import InvoiceModal from "@/components/InvoiceModal";
 import WorkOrderModal from "@/components/WorkOrderModal";
 import BackButton from "@/components/BackButton";
+import { useRole } from "@/contexts/RoleContext";
 
 interface RepairJob {
   id: string;
@@ -61,6 +62,7 @@ const engineCcOptions = ["50cc","110cc","125cc","250cc","300cc","400cc","500cc",
 const getStatusInfo = (s: string) => statuses.find((st) => st.value === s) || statuses[0];
 
 const RepairsPage = () => {
+  const { isOwner } = useRole();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [jobs, setJobs] = useState<RepairJob[]>([]);
@@ -1252,6 +1254,18 @@ const RepairsPage = () => {
                         {job.delivered_at && <span>Delivered: {new Date(job.delivered_at).toLocaleDateString("en-GB")}</span>}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
+                        {isLocked && isOwner && job.payment_status !== "paid" && (
+                          <button onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!window.confirm("Reopen this Service Order? It will be unlocked for editing.")) return;
+                            await supabase.from("repair_jobs").update({ locked: false, status: "in_repair", completed_at: null } as any).eq("id", job.id);
+                            await fetchData();
+                            toast({ title: "Service Order reopened" });
+                          }}
+                            className="flex items-center gap-1.5 rounded-lg bg-chart-amber px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110">
+                            <Unlock className="h-3.5 w-3.5" /> Reopen
+                          </button>
+                        )}
                         {!isLocked && (
                           <button onClick={() => updateStatus(job.id, "ready")}
                             className="flex items-center gap-1.5 rounded-lg bg-chart-green px-3 py-1.5 text-xs font-semibold text-white hover:brightness-110">
