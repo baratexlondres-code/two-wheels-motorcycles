@@ -1013,16 +1013,16 @@ const RepairsPage = () => {
                           <div className="flex items-center gap-0.5">
                             <span className="text-muted-foreground">£</span>
                             <input
+                              key={`parts-${job.id}-${(job as any).parts_cost}`}
                               type="number"
                               step="0.01"
-                              defaultValue={Number((job as any).parts_cost) || ""}
+                              defaultValue={(job as any).parts_cost != null && Number((job as any).parts_cost) !== 0 ? Number((job as any).parts_cost) : ""}
                               placeholder={partsTotal.toFixed(2)}
                               onBlur={async (e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                if (val !== Number((job as any).parts_cost)) {
-                                  await supabase.from("repair_jobs").update({ parts_cost: val } as any).eq("id", job.id);
-                                  fetchData();
-                                }
+                                const raw = e.target.value.trim();
+                                const val = raw === "" ? null : parseFloat(raw) || null;
+                                await supabase.from("repair_jobs").update({ parts_cost: val } as any).eq("id", job.id);
+                                fetchData();
                               }}
                               className="w-20 bg-transparent text-foreground font-medium focus:outline-none border-b border-border/50 focus:border-primary"
                             />
@@ -1033,16 +1033,16 @@ const RepairsPage = () => {
                           <div className="flex items-center gap-0.5">
                             <span className="text-muted-foreground">£</span>
                             <input
+                              key={`svcs-${job.id}-${(job as any).services_cost}`}
                               type="number"
                               step="0.01"
-                              defaultValue={Number((job as any).services_cost) || ""}
+                              defaultValue={(job as any).services_cost != null && Number((job as any).services_cost) !== 0 ? Number((job as any).services_cost) : ""}
                               placeholder={servicesTotal.toFixed(2)}
                               onBlur={async (e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                if (val !== Number((job as any).services_cost)) {
-                                  await supabase.from("repair_jobs").update({ services_cost: val } as any).eq("id", job.id);
-                                  fetchData();
-                                }
+                                const raw = e.target.value.trim();
+                                const val = raw === "" ? null : parseFloat(raw) || null;
+                                await supabase.from("repair_jobs").update({ services_cost: val } as any).eq("id", job.id);
+                                fetchData();
                               }}
                               className="w-20 bg-transparent text-foreground font-medium focus:outline-none border-b border-border/50 focus:border-primary"
                             />
@@ -1053,12 +1053,14 @@ const RepairsPage = () => {
                           <div className="flex items-center gap-0.5">
                             <span className="text-muted-foreground">£</span>
                             <input
+                              key={`labor-${job.id}-${job.labor_cost}`}
                               type="number"
                               step="0.01"
                               defaultValue={Number(job.labor_cost) || ""}
                               placeholder="0.00"
                               onBlur={async (e) => {
-                                const val = parseFloat(e.target.value) || 0;
+                                const raw = e.target.value.trim();
+                                const val = raw === "" ? 0 : parseFloat(raw) || 0;
                                 if (val !== Number(job.labor_cost)) {
                                   await supabase.from("repair_jobs").update({ labor_cost: val }).eq("id", job.id);
                                   fetchData();
@@ -1073,18 +1075,16 @@ const RepairsPage = () => {
                           <div className="flex items-center gap-0.5">
                             <span className="text-muted-foreground">£</span>
                             <input
-                              key={`final-cost-${job.id}-${job.final_cost ?? "null"}`}
+                              key={`final-${job.id}-${job.final_cost}`}
                               type="number"
                               step="0.01"
-                              defaultValue={job.final_cost ?? ""}
+                              defaultValue={job.final_cost != null && Number(job.final_cost) !== 0 ? Number(job.final_cost) : ""}
                               placeholder={(partsTotal + servicesTotal + (Number(job.labor_cost) || 0)).toFixed(2)}
                               onBlur={async (e) => {
                                 const raw = e.target.value.trim();
-                                const val = raw === "" ? null : parseFloat(raw);
-                                if (val !== job.final_cost) {
-                                  await supabase.from("repair_jobs").update({ final_cost: val }).eq("id", job.id);
-                                  fetchData();
-                                }
+                                const val = raw === "" ? null : parseFloat(raw) || null;
+                                await supabase.from("repair_jobs").update({ final_cost: val }).eq("id", job.id);
+                                fetchData();
                               }}
                               className="w-20 bg-transparent text-foreground font-semibold focus:outline-none border-b border-border/50 focus:border-primary"
                             />
