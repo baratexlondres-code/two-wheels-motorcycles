@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import PlateScanner from "@/components/PlateScanner";
 import InvoiceModal from "@/components/InvoiceModal";
+import WorkOrderModal from "@/components/WorkOrderModal";
 import BackButton from "@/components/BackButton";
 
 interface RepairJob {
@@ -65,6 +66,7 @@ const RepairsPage = () => {
   const [jobs, setJobs] = useState<RepairJob[]>([]);
   const [customers, setCustomers] = useState<CustomerFull[]>([]);
   const [invoiceJobId, setInvoiceJobId] = useState<string | null>(null);
+  const [workOrderJobId, setWorkOrderJobId] = useState<string | null>(null);
   const [motorcycles, setMotorcycles] = useState<Motorcycle[]>([]);
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [repairParts, setRepairParts] = useState<RepairPart[]>([]);
@@ -1273,6 +1275,10 @@ const RepairsPage = () => {
                             <PoundSterling className="h-3.5 w-3.5" /> Mark as Paid
                           </button>
                         )}
+                        <button onClick={() => setWorkOrderJobId(job.id)}
+                          className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground hover:brightness-110 border border-border">
+                          <Wrench className="h-3.5 w-3.5" /> Work Order
+                        </button>
                         <button onClick={() => setInvoiceJobId(job.id)}
                           className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:brightness-110">
                           <FileText className="h-3.5 w-3.5" /> Invoice
@@ -1323,6 +1329,48 @@ const RepairsPage = () => {
             }}
             onClose={() => setInvoiceJobId(null)}
             onPaid={() => { setInvoiceJobId(null); fetchData(); toast({ title: "Payment recorded & invoice generated" }); }}
+          />
+        );
+      })()}
+
+      {/* Work Order Modal */}
+      {workOrderJobId && (() => {
+        const job = jobs.find((j) => j.id === workOrderJobId);
+        const customer = customers.find((c) => c.id === job?.customer_id);
+        const moto = motorcycles.find((m) => m.id === job?.motorcycle_id);
+        if (!job || !customer || !moto) return null;
+        const allSvcs = repairServices.filter((s) => s.repair_job_id === workOrderJobId);
+        const woServices = allSvcs
+          .filter((s) => !s.description.startsWith("[PART]"))
+          .map((s) => {
+            const mech = mechanics.find((m) => m.id === s.mechanic_id);
+            return { description: s.description, mechanic_name: mech?.full_name || null, service_type: s.service_type };
+          });
+        const stockParts = repairParts.filter((p) => p.repair_job_id === workOrderJobId).map((p) => {
+          const item = stockItems.find((s) => s.id === p.stock_item_id);
+          return { name: item?.name || "Unknown", quantity: p.quantity };
+        });
+        const manualParts = allSvcs
+          .filter((s) => s.description.startsWith("[PART]"))
+          .map((s) => ({ name: s.description.replace(/^\[PART\]\s*/, ""), quantity: 1 }));
+        return (
+          <WorkOrderModal
+            data={{
+              job: {
+                id: job.id,
+                job_number: job.job_number,
+                service_order_number: job.service_order_number,
+                description: job.description,
+                received_at: job.received_at,
+                estimated_completion_date: job.estimated_completion_date,
+                notes: job.notes,
+              },
+              customer: { name: customer.name, phone: customer.phone },
+              motorcycle: { registration: moto.registration, make: moto.make, model: moto.model, year: moto.year },
+              services: woServices,
+              parts: [...stockParts, ...manualParts],
+            }}
+            onClose={() => setWorkOrderJobId(null)}
           />
         );
       })()}
