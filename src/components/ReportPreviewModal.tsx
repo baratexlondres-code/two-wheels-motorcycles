@@ -1,4 +1,5 @@
-import { X, Printer, User, Wrench, Package, FileText } from "lucide-react";
+import { useState } from "react";
+import { X, Printer, User, Wrench, Package, FileText, List, AlignLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { format, parseISO } from "date-fns";
 import logoSrc from "@/assets/logo.png";
@@ -50,6 +51,7 @@ export default function ReportPreviewModal({
   motoSales, accSales, monthlyRevenue, getJobTotal, totalRevenue, repairRevenue, motoRevenue,
   motoProfit, accRevenue, onExportPDF,
 }: Props) {
+  const [detailed, setDetailed] = useState(true);
   const getCust = (id: string) => customers.find(c => c.id === id);
   const getMoto = (id: string) => motorcycles.find(m => m.id === id);
 
@@ -63,6 +65,17 @@ export default function ReportPreviewModal({
       <div className="fixed top-0 left-0 right-0 z-50 flex items-center justify-between bg-card border-b border-border px-5 py-3 print:hidden">
         <h2 className="text-sm font-bold text-foreground">Report Preview</h2>
         <div className="flex items-center gap-2">
+          {/* View toggle */}
+          <div className="flex rounded-lg border border-border overflow-hidden mr-2">
+            <button onClick={() => setDetailed(false)}
+              className={`flex items-center gap-1 px-3 py-2 text-xs font-medium transition-colors ${!detailed ? "bg-primary text-white" : "bg-card text-muted-foreground hover:text-foreground"}`}>
+              <List className="h-3.5 w-3.5" /> Summary
+            </button>
+            <button onClick={() => setDetailed(true)}
+              className={`flex items-center gap-1 px-3 py-2 text-xs font-medium transition-colors ${detailed ? "bg-primary text-white" : "bg-card text-muted-foreground hover:text-foreground"}`}>
+              <AlignLeft className="h-3.5 w-3.5" /> Detailed
+            </button>
+          </div>
           <button onClick={handlePrint}
             className="flex items-center gap-1.5 rounded-lg bg-secondary px-3 py-2 text-xs font-medium text-foreground hover:bg-secondary/80 transition-colors">
             <Printer className="h-3.5 w-3.5" /> Print
@@ -150,112 +163,152 @@ export default function ReportPreviewModal({
           </div>
         )}
 
-        {/* Detailed Repair Jobs */}
+        {/* Repair Jobs */}
         <div className="px-6 py-4 border-b border-border">
           <h2 className="text-sm font-bold text-foreground mb-3 print:text-black">
-            Repair Jobs Detail ({jobs.length} jobs)
+            Repair Jobs {detailed ? "Detail" : "Summary"} ({jobs.length} jobs)
           </h2>
-          <div className="space-y-3">
-            {jobs.map(job => {
-              const cust = getCust(job.customer_id);
-              const moto = getMoto(job.motorcycle_id);
-              const jobParts = parts.filter(p => p.repair_job_id === job.id);
-              const jobServices = services.filter(s => s.repair_job_id === job.id);
-              const partsTotal = jobParts.reduce((s, p) => s + p.quantity * Number(p.unit_price), 0);
-              const svcsTotal = jobServices.reduce((s, sv) => s + Number(sv.price), 0);
-              const laborCost = Number(job.labor_cost) || 0;
-              const total = getJobTotal(job);
 
-              return (
-                <div key={job.id} className="rounded-lg border border-border p-3 print:border-gray-200 print:break-inside-avoid">
-                  {/* Job header */}
-                  <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs font-bold text-primary print:text-red-600">{job.job_number}</span>
-                        {job.invoice_number && <span className="text-[10px] text-muted-foreground">INV: {job.invoice_number}</span>}
-                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground print:bg-gray-100">
+          {detailed ? (
+            /* DETAILED VIEW */
+            <div className="space-y-3">
+              {jobs.map(job => {
+                const cust = getCust(job.customer_id);
+                const moto = getMoto(job.motorcycle_id);
+                const jobParts = parts.filter(p => p.repair_job_id === job.id);
+                const jobServices = services.filter(s => s.repair_job_id === job.id);
+                const partsTotal = jobParts.reduce((s, p) => s + p.quantity * Number(p.unit_price), 0);
+                const svcsTotal = jobServices.reduce((s, sv) => s + Number(sv.price), 0);
+                const laborCost = Number(job.labor_cost) || 0;
+                const total = getJobTotal(job);
+
+                return (
+                  <div key={job.id} className="rounded-lg border border-border p-3 print:border-gray-200 print:break-inside-avoid">
+                    <div className="flex items-start justify-between mb-2">
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-primary print:text-red-600">{job.job_number}</span>
+                          {job.invoice_number && <span className="text-[10px] text-muted-foreground">INV: {job.invoice_number}</span>}
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground print:bg-gray-100">
+                            {STATUS_LABELS[job.status] || job.status}
+                          </span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${job.payment_status === "paid" ? "bg-green-500/20 text-green-400 print:bg-green-50 print:text-green-700" : "bg-red-500/20 text-red-400 print:bg-red-50 print:text-red-700"}`}>
+                            {job.payment_status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">{job.description}</p>
+                      </div>
+                      <span className="text-sm font-bold text-foreground print:text-black whitespace-nowrap">£{total.toFixed(2)}</span>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-2 flex-wrap">
+                      <span className="flex items-center gap-1"><User className="h-3 w-3" /> <strong className="text-foreground print:text-black">{cust?.name || "Unknown"}</strong></span>
+                      {cust?.phone && <span>📱 {cust.phone}</span>}
+                      {cust?.email && <span>✉ {cust.email}</span>}
+                      {moto && <span>🏍 {moto.registration} — {moto.make} {moto.model}</span>}
+                    </div>
+
+                    <div className="flex gap-3 text-[10px] text-muted-foreground mb-2 flex-wrap">
+                      <span>Received: {format(parseISO(job.received_at), "dd/MM/yyyy")}</span>
+                      {job.completed_at && <span>Completed: {format(parseISO(job.completed_at), "dd/MM/yyyy")}</span>}
+                      {job.payment_date && <span>Paid: {format(parseISO(job.payment_date), "dd/MM/yyyy")}</span>}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {jobServices.length > 0 && (
+                        <div className="rounded bg-secondary/30 p-2 print:bg-gray-50">
+                          <p className="text-[10px] font-semibold text-foreground mb-1 flex items-center gap-1 print:text-black">
+                            <Wrench className="h-3 w-3" /> Services ({jobServices.length})
+                          </p>
+                          {jobServices.map(s => (
+                            <div key={s.id} className="flex justify-between text-[10px] py-0.5">
+                              <span className="text-muted-foreground truncate mr-2">{s.description}</span>
+                              <span className="text-foreground font-medium print:text-black">£{Number(s.price).toFixed(2)}</span>
+                            </div>
+                          ))}
+                          <div className="flex justify-between text-[10px] font-bold border-t border-border/50 pt-1 mt-1">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span className="text-foreground print:text-black">£{svcsTotal.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {jobParts.length > 0 && (
+                        <div className="rounded bg-secondary/30 p-2 print:bg-gray-50">
+                          <p className="text-[10px] font-semibold text-foreground mb-1 flex items-center gap-1 print:text-black">
+                            <Package className="h-3 w-3" /> Parts ({jobParts.length})
+                          </p>
+                          {jobParts.map(p => {
+                            const item = stockItems.find(s => s.id === p.stock_item_id);
+                            return (
+                              <div key={p.id} className="flex justify-between text-[10px] py-0.5">
+                                <span className="text-muted-foreground truncate mr-2">{item?.name || "Unknown"} × {p.quantity}</span>
+                                <span className="text-foreground font-medium print:text-black">£{(p.quantity * Number(p.unit_price)).toFixed(2)}</span>
+                              </div>
+                            );
+                          })}
+                          <div className="flex justify-between text-[10px] font-bold border-t border-border/50 pt-1 mt-1">
+                            <span className="text-muted-foreground">Subtotal</span>
+                            <span className="text-foreground print:text-black">£{partsTotal.toFixed(2)}</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {laborCost > 0 && (
+                      <div className="flex justify-between text-[10px] mt-1 px-2">
+                        <span className="text-muted-foreground">Labour</span>
+                        <span className="font-medium text-foreground print:text-black">£{laborCost.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            /* SUMMARY VIEW - simple table */
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border text-left text-[10px] uppercase text-muted-foreground">
+                  <th className="pb-2 pr-2">Job #</th>
+                  <th className="pb-2 pr-2">Customer</th>
+                  <th className="pb-2 pr-2">Vehicle</th>
+                  <th className="pb-2 pr-2">Status</th>
+                  <th className="pb-2 pr-2">Payment</th>
+                  <th className="pb-2 text-right">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {jobs.map(job => {
+                  const cust = getCust(job.customer_id);
+                  const moto = getMoto(job.motorcycle_id);
+                  const total = getJobTotal(job);
+                  return (
+                    <tr key={job.id} className="border-b border-border/30">
+                      <td className="py-2 pr-2 font-bold text-primary print:text-red-600 text-[11px]">{job.job_number}</td>
+                      <td className="py-2 pr-2 text-foreground print:text-black">{cust?.name || "Unknown"}</td>
+                      <td className="py-2 pr-2 text-muted-foreground">{moto?.registration || "—"}</td>
+                      <td className="py-2 pr-2">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground">
                           {STATUS_LABELS[job.status] || job.status}
                         </span>
-                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${job.payment_status === "paid" ? "bg-green-500/20 text-green-400 print:bg-green-50 print:text-green-700" : "bg-red-500/20 text-red-400 print:bg-red-50 print:text-red-700"}`}>
+                      </td>
+                      <td className="py-2 pr-2">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${job.payment_status === "paid" ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
                           {job.payment_status}
                         </span>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-1">{job.description}</p>
-                    </div>
-                    <span className="text-sm font-bold text-foreground print:text-black whitespace-nowrap">£{total.toFixed(2)}</span>
-                  </div>
-
-                  {/* Customer & Vehicle */}
-                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground mb-2 flex-wrap">
-                    <span className="flex items-center gap-1"><User className="h-3 w-3" /> <strong className="text-foreground print:text-black">{cust?.name || "Unknown"}</strong></span>
-                    {cust?.phone && <span>📱 {cust.phone}</span>}
-                    {cust?.email && <span>✉ {cust.email}</span>}
-                    {moto && <span>🏍 {moto.registration} — {moto.make} {moto.model}</span>}
-                  </div>
-
-                  {/* Dates */}
-                  <div className="flex gap-3 text-[10px] text-muted-foreground mb-2 flex-wrap">
-                    <span>Received: {format(parseISO(job.received_at), "dd/MM/yyyy")}</span>
-                    {job.completed_at && <span>Completed: {format(parseISO(job.completed_at), "dd/MM/yyyy")}</span>}
-                    {job.payment_date && <span>Paid: {format(parseISO(job.payment_date), "dd/MM/yyyy")}</span>}
-                  </div>
-
-                  {/* Services & Parts breakdown */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {/* Services */}
-                    {jobServices.length > 0 && (
-                      <div className="rounded bg-secondary/30 p-2 print:bg-gray-50">
-                        <p className="text-[10px] font-semibold text-foreground mb-1 flex items-center gap-1 print:text-black">
-                          <Wrench className="h-3 w-3" /> Services ({jobServices.length})
-                        </p>
-                        {jobServices.map(s => (
-                          <div key={s.id} className="flex justify-between text-[10px] py-0.5">
-                            <span className="text-muted-foreground truncate mr-2">{s.description}</span>
-                            <span className="text-foreground font-medium print:text-black">£{Number(s.price).toFixed(2)}</span>
-                          </div>
-                        ))}
-                        <div className="flex justify-between text-[10px] font-bold border-t border-border/50 pt-1 mt-1">
-                          <span className="text-muted-foreground">Subtotal</span>
-                          <span className="text-foreground print:text-black">£{svcsTotal.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Parts */}
-                    {jobParts.length > 0 && (
-                      <div className="rounded bg-secondary/30 p-2 print:bg-gray-50">
-                        <p className="text-[10px] font-semibold text-foreground mb-1 flex items-center gap-1 print:text-black">
-                          <Package className="h-3 w-3" /> Parts ({jobParts.length})
-                        </p>
-                        {jobParts.map(p => {
-                          const item = stockItems.find(s => s.id === p.stock_item_id);
-                          return (
-                            <div key={p.id} className="flex justify-between text-[10px] py-0.5">
-                              <span className="text-muted-foreground truncate mr-2">{item?.name || "Unknown"} × {p.quantity}</span>
-                              <span className="text-foreground font-medium print:text-black">£{(p.quantity * Number(p.unit_price)).toFixed(2)}</span>
-                            </div>
-                          );
-                        })}
-                        <div className="flex justify-between text-[10px] font-bold border-t border-border/50 pt-1 mt-1">
-                          <span className="text-muted-foreground">Subtotal</span>
-                          <span className="text-foreground print:text-black">£{partsTotal.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Labour */}
-                  {laborCost > 0 && (
-                    <div className="flex justify-between text-[10px] mt-1 px-2">
-                      <span className="text-muted-foreground">Labour</span>
-                      <span className="font-medium text-foreground print:text-black">£{laborCost.toFixed(2)}</span>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+                      </td>
+                      <td className="py-2 text-right font-bold text-foreground print:text-black">£{total.toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
+                <tr className="border-t-2 border-border font-bold">
+                  <td colSpan={5} className="py-2 text-foreground print:text-black">Total</td>
+                  <td className="py-2 text-right text-foreground print:text-black">£{jobs.reduce((s, j) => s + getJobTotal(j), 0).toFixed(2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          )}
         </div>
 
         {/* Motorcycle Sales */}
