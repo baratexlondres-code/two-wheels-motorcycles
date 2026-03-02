@@ -1,6 +1,6 @@
 import {
   Wrench, Bike, ShoppingCart, Package, FileText,
-  BarChart3, Settings, LayoutDashboard, Users, LogOut, Shield, MessageSquare, Power, Star,
+  BarChart3, Settings, LayoutDashboard, Users, LogOut, Shield, MessageSquare, Power,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRole } from "@/contexts/RoleContext";
@@ -28,7 +28,7 @@ const allMainItems = [
   { title: "Customers", url: "/customers", icon: Users, ownerOnly: false },
   { title: "Invoices", url: "/invoices", icon: FileText, ownerOnly: true },
   { title: "Reports", url: "/reports", icon: BarChart3, ownerOnly: true },
-  { title: "Commissions", url: "/commissions", icon: Star, ownerOnly: true },
+  
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, ownerOnly: true },
 ];
 
