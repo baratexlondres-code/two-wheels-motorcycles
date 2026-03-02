@@ -29,6 +29,44 @@
 
   <body>
     <div id="root"></div>
+    <!-- Force-update: runs BEFORE any cached JS bundle -->
+    <script>
+      (function() {
+        var APP_BUILD = "2026-03-02-v2";
+        var KEY = "tw_build_version";
+        try {
+          var stored = localStorage.getItem(KEY);
+          if (stored !== APP_BUILD) {
+            localStorage.setItem(KEY, APP_BUILD);
+            if ('caches' in window) {
+              caches.keys().then(function(names) {
+                return Promise.all(names.map(function(n) { return caches.delete(n); }));
+              }).then(function() {
+                if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.getRegistrations().then(function(regs) {
+                    regs.forEach(function(r) { r.unregister(); });
+                    window.location.reload();
+                  });
+                } else {
+                  window.location.reload();
+                }
+              });
+            } else if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.unregister(); });
+                window.location.reload();
+              });
+            } else {
+              window.location.reload();
+            }
+            // Stop further execution while we reload
+            throw new Error("RELOAD");
+          }
+        } catch(e) {
+          if (e.message !== "RELOAD") console.warn("Update check:", e);
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
