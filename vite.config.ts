@@ -10,6 +10,7 @@ export default defineConfig(({ mode }) => ({
   define: {
     'import.meta.env.VITE_SUPABASE_URL': JSON.stringify(process.env.VITE_SUPABASE_URL || "https://uzxpmxzjtkrayleiuljd.supabase.co"),
     'import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY': JSON.stringify(process.env.VITE_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV6eHBteHpqdGtyYXlsZWl1bGpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzE0MjIxMjcsImV4cCI6MjA4Njk5ODEyN30.YAM3FPu5i5n4MUbuTpWj0HswkSwO6cZzJ0Gp3q0Lz9w"),
+    __APP_VERSION: JSON.stringify(process.env.npm_package_version || "1.1.0"),
   },
   server: {
     host: "::",
