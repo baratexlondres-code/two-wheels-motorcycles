@@ -450,10 +450,6 @@ const RepairsPage = () => {
           </div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowMechanicManager(true)}
-            className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2.5 text-sm text-foreground hover:bg-secondary">
-            <Users className="h-4 w-4" /> Mechanics
-          </button>
           <PlateScanner onResult={handlePlateResult} />
           <button onClick={() => setShowForm(true)}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110">
@@ -490,39 +486,6 @@ const RepairsPage = () => {
         })}
       </div>
 
-      {/* Mechanic Manager Modal */}
-      {showMechanicManager && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-md rounded-xl border border-border bg-card p-6 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-foreground">Manage Mechanics</h2>
-              <button onClick={() => setShowMechanicManager(false)}><X className="h-5 w-5 text-muted-foreground" /></button>
-            </div>
-            <div className="space-y-3">
-              <div className="flex gap-2">
-                <input value={newMechanicName} onChange={(e) => setNewMechanicName(e.target.value)}
-                  placeholder="Mechanic name" className="flex-1 rounded border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none" />
-                <input value={newMechanicCommission} onChange={(e) => setNewMechanicCommission(e.target.value)}
-                  placeholder="%" type="number" className="w-16 rounded border border-border bg-secondary px-2 py-2 text-sm text-foreground focus:outline-none" />
-                <button onClick={handleAddMechanic} className="rounded bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground">Add</button>
-              </div>
-              {mechanics.map((m) => (
-                <div key={m.id} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${m.active ? "border-border bg-card" : "border-border/50 bg-muted/50 opacity-60"}`}>
-                  <div>
-                    <span className="text-sm font-medium text-foreground">{m.full_name}</span>
-                    <span className="text-xs text-muted-foreground ml-2">{Number(m.default_commission_percentage)}%</span>
-                  </div>
-                  <button onClick={() => toggleMechanicActive(m.id, m.active)}
-                    className={`text-xs px-2 py-1 rounded ${m.active ? "bg-chart-green/20 text-chart-green" : "bg-muted text-muted-foreground"}`}>
-                    {m.active ? "Active" : "Inactive"}
-                  </button>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-        </div>
-      )}
 
       {/* New Job Form */}
       {showForm && (
