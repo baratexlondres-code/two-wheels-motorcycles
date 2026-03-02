@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Plus, Search, Wrench, X, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, Truck, Eye, Settings2, Package, FileText, PoundSterling, Lock, Unlock, Users, Star } from "lucide-react";
+import { Plus, Search, Wrench, X, ChevronDown, ChevronUp, Clock, CheckCircle, AlertTriangle, Truck, Eye, Settings2, Package, FileText, PoundSterling, Lock, Unlock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import PlateScanner from "@/components/PlateScanner";
@@ -44,7 +44,6 @@ interface StockItem { id: string; name: string; sell_price: number; quantity: nu
 interface ServiceCatalogItem { id: string; service_code: string; name: string; category: string; description: string | null; default_price: number; }
 interface Brand { id: string; brand_name: string; }
 interface Model { id: string; brand_id: string; model_name: string; category: string; engine_cc: string; vehicle_type: string; }
-interface Mechanic { id: string; full_name: string; default_commission_percentage: number; active: boolean; }
 
 const statuses = [
   { value: "received", label: "Received", icon: Clock, color: "bg-muted text-muted-foreground" },
@@ -75,7 +74,6 @@ const RepairsPage = () => {
   const [repairServices, setRepairServices] = useState<RepairService[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
   const [models, setModels] = useState<Model[]>([]);
-  const [mechanics, setMechanics] = useState<Mechanic[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [showForm, setShowForm] = useState(false);
@@ -90,7 +88,7 @@ const RepairsPage = () => {
   const [partSearch, setPartSearch] = useState("");
   const [showAddPart, setShowAddPart] = useState<string | null>(null);
   const [serviceCatalog, setServiceCatalog] = useState<ServiceCatalogItem[]>([]);
-  const [pendingServices, setPendingServices] = useState<{ description: string; price: number; mechanic_id: string; commission_percentage: number; service_type: string }[]>([]);
+  const [pendingServices, setPendingServices] = useState<{ description: string; price: number; service_type: string }[]>([]);
   const [serviceSearch, setServiceSearch] = useState("");
   const [showAddService, setShowAddService] = useState<string | null>(null);
   const [showNewModelForm, setShowNewModelForm] = useState(false);
@@ -111,14 +109,10 @@ const RepairsPage = () => {
   const [customerSearch, setCustomerSearch] = useState("");
   const [showNewCustomer, setShowNewCustomer] = useState(false);
   const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "", address: "", notes: "" });
-  // Mechanic management
-  const [showMechanicManager, setShowMechanicManager] = useState(false);
-  const [newMechanicName, setNewMechanicName] = useState("");
-  const [newMechanicCommission, setNewMechanicCommission] = useState("10");
 
   const fetchData = async () => {
     setLoading(true);
-    const [{ data: j }, { data: c }, { data: m }, { data: s }, { data: p }, { data: b }, { data: md }, { data: rs }, { data: sc }, { data: mech }] = await Promise.all([
+    const [{ data: j }, { data: c }, { data: m }, { data: s }, { data: p }, { data: b }, { data: md }, { data: rs }, { data: sc }] = await Promise.all([
       supabase.from("repair_jobs").select("*").order("created_at", { ascending: false }),
       supabase.from("customers").select("id, name, phone, email, address").order("name"),
       supabase.from("motorcycles").select("id, customer_id, registration, make, model, year"),
@@ -128,7 +122,6 @@ const RepairsPage = () => {
       supabase.from("motorcycle_models").select("*").eq("active_status", true).order("model_name"),
       supabase.from("repair_services").select("*"),
       supabase.from("service_catalog").select("*").eq("active", true).order("category, name"),
-      supabase.from("mechanics").select("*").order("full_name"),
     ]);
     setJobs((j as any[]) || []);
     setCustomers(c || []);
@@ -139,7 +132,6 @@ const RepairsPage = () => {
     setModels((md as Model[]) || []);
     setRepairServices((rs as RepairService[]) || []);
     setServiceCatalog((sc as ServiceCatalogItem[]) || []);
-    setMechanics((mech as Mechanic[]) || []);
     setLoading(false);
   };
 
@@ -167,7 +159,7 @@ const RepairsPage = () => {
 
   const customerMotos = motorcycles.filter((m) => m.customer_id === form.customer_id);
   const brandModels = models.filter((m) => m.brand_id === form.brand_id);
-  const activeMechanics = mechanics.filter((m) => m.active);
+  
 
   const handleBrandChange = (brandId: string) => {
     setForm({ ...form, brand_id: brandId, model_id: "", engine_cc: "", category: "", vehicle_type: "Motorcycle" });
@@ -315,12 +307,6 @@ const RepairsPage = () => {
     if (newStatus === "ready") {
       updates.completed_at = new Date().toISOString();
       updates.locked = true;
-      // Calculate commission values for all services
-      const jobServices = repairServices.filter((s) => s.repair_job_id === jobId && !s.description.startsWith("[PART]"));
-      for (const svc of jobServices) {
-        const commValue = Number(svc.price) * (Number(svc.commission_percentage) / 100);
-        await supabase.from("repair_services").update({ commission_value: commValue } as any).eq("id", svc.id);
-      }
     }
     if (newStatus === "delivered") updates.delivered_at = new Date().toISOString();
     await supabase.from("repair_jobs").update(updates as any).eq("id", jobId);
@@ -373,7 +359,7 @@ const RepairsPage = () => {
     setPendingServices((prev) => {
       const exists = prev.find((p) => p.description === svc.name);
       if (exists) return prev.filter((p) => p.description !== svc.name);
-      return [...prev, { description: svc.name, price: Number(svc.default_price), mechanic_id: "", commission_percentage: 20, service_type: "standard" }];
+      return [...prev, { description: svc.name, price: Number(svc.default_price), service_type: "standard" }];
     });
   };
 
@@ -383,13 +369,8 @@ const RepairsPage = () => {
     const customDescs = valid.map((s) => s.description.trim()).filter(Boolean);
     addToServiceHistory(customDescs);
     for (const svc of valid) {
-      const commPct = 20;
-      const commVal = svc.price * (commPct / 100);
       await supabase.from("repair_services").insert({
         repair_job_id: jobId, description: svc.description.trim(), price: svc.price,
-        mechanic_id: null,
-        commission_percentage: commPct,
-        commission_value: commVal,
         service_type: svc.service_type,
       } as any);
     }
@@ -403,23 +384,6 @@ const RepairsPage = () => {
     toast({ title: "Service removed" }); fetchData();
   };
 
-  const handleAddMechanic = async () => {
-    if (!newMechanicName.trim()) return;
-    const { error } = await supabase.from("mechanics").insert({
-      full_name: newMechanicName.trim(),
-      default_commission_percentage: parseFloat(newMechanicCommission) || 10,
-    } as any);
-    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
-    toast({ title: "Mechanic added" });
-    setNewMechanicName("");
-    setNewMechanicCommission("10");
-    fetchData();
-  };
-
-  const toggleMechanicActive = async (id: string, active: boolean) => {
-    await supabase.from("mechanics").update({ active: !active } as any).eq("id", id);
-    fetchData();
-  };
 
   const filtered = jobs.filter((j) => {
     const customer = customers.find((c) => c.id === j.customer_id);
@@ -726,7 +690,7 @@ const RepairsPage = () => {
             const labor = Number(job.labor_cost) || 0;
             const calculated = effectiveParts + effectiveSvcs + labor;
             const displayVal = Number(job.final_cost) > 0 ? Number(job.final_cost) : calculated > 0 ? calculated : Number(job.estimated_cost) || 0;
-            const totalCommission = services.reduce((s, sv) => s + Number(sv.commission_value || 0), 0);
+            
             const isLocked = job.locked;
 
             return (
@@ -815,7 +779,7 @@ const RepairsPage = () => {
                                       if (selected) {
                                         setPendingServices((prev) => prev.filter((p) => p.description.toLowerCase() !== h.toLowerCase()));
                                       } else {
-                                        setPendingServices((prev) => [...prev, { description: h, price: 0, mechanic_id: "", commission_percentage: 20, service_type: "standard" }]);
+                                        setPendingServices((prev) => [...prev, { description: h, price: 0, service_type: "standard" }]);
                                       }
                                     }}
                                       className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0 ${selected ? "bg-primary/10" : ""}`}>
@@ -850,7 +814,7 @@ const RepairsPage = () => {
                                 })}
                             </div>
 
-                            <button onClick={() => setPendingServices((prev) => [...prev, { description: "", price: 0, mechanic_id: "", commission_percentage: 20, service_type: "standard" }])}
+                            <button onClick={() => setPendingServices((prev) => [...prev, { description: "", price: 0, service_type: "standard" }])}
                               className="flex items-center gap-1 text-xs text-primary hover:underline">
                               <Plus className="h-3 w-3" /> Custom Service
                             </button>
@@ -1165,25 +1129,6 @@ const RepairsPage = () => {
                           </div>
                         </div>
 
-                        {/* Commission summary */}
-                        {totalCommission > 0 && (
-                          <div className="rounded-lg border border-chart-amber/30 bg-chart-amber/5 p-3">
-                            <label className="text-xs font-semibold text-chart-amber uppercase tracking-wider flex items-center gap-1">
-                              <Star className="h-3 w-3" /> Commission Total: £{totalCommission.toFixed(2)}
-                            </label>
-                            <div className="mt-2 space-y-1">
-                              {services.filter((s) => s.mechanic_id).map((s) => {
-                                const mech = mechanics.find((m) => m.id === s.mechanic_id);
-                                return (
-                                  <div key={s.id} className="flex justify-between text-xs">
-                                    <span className="text-foreground">{mech?.full_name}: {s.description}</span>
-                                    <span className="text-chart-amber font-medium">£{Number(s.commission_value || 0).toFixed(2)}</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     )}
 
@@ -1307,8 +1252,7 @@ const RepairsPage = () => {
         const woServices = allSvcs
           .filter((s) => !s.description.startsWith("[PART]"))
           .map((s) => {
-            const mech = mechanics.find((m) => m.id === s.mechanic_id);
-            return { description: s.description, mechanic_name: mech?.full_name || null, service_type: s.service_type };
+            return { description: s.description, mechanic_name: null, service_type: s.service_type };
           });
         const stockParts = repairParts.filter((p) => p.repair_job_id === workOrderJobId).map((p) => {
           const item = stockItems.find((s) => s.id === p.stock_item_id);
