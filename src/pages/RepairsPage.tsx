@@ -373,7 +373,7 @@ const RepairsPage = () => {
     setPendingServices((prev) => {
       const exists = prev.find((p) => p.description === svc.name);
       if (exists) return prev.filter((p) => p.description !== svc.name);
-      return [...prev, { description: svc.name, price: Number(svc.default_price), mechanic_id: "", commission_percentage: 0, service_type: "standard" }];
+      return [...prev, { description: svc.name, price: Number(svc.default_price), mechanic_id: "", commission_percentage: 20, service_type: "standard" }];
     });
   };
 
@@ -383,12 +383,11 @@ const RepairsPage = () => {
     const customDescs = valid.map((s) => s.description.trim()).filter(Boolean);
     addToServiceHistory(customDescs);
     for (const svc of valid) {
-      const mechanic = mechanics.find((m) => m.id === svc.mechanic_id);
-      const commPct = svc.commission_percentage || mechanic?.default_commission_percentage || 0;
+      const commPct = 20;
       const commVal = svc.price * (commPct / 100);
       await supabase.from("repair_services").insert({
         repair_job_id: jobId, description: svc.description.trim(), price: svc.price,
-        mechanic_id: svc.mechanic_id || null,
+        mechanic_id: null,
         commission_percentage: commPct,
         commission_value: commVal,
         service_type: svc.service_type,
@@ -853,7 +852,7 @@ const RepairsPage = () => {
                                       if (selected) {
                                         setPendingServices((prev) => prev.filter((p) => p.description.toLowerCase() !== h.toLowerCase()));
                                       } else {
-                                        setPendingServices((prev) => [...prev, { description: h, price: 0, mechanic_id: "", commission_percentage: 0, service_type: "standard" }]);
+                                        setPendingServices((prev) => [...prev, { description: h, price: 0, mechanic_id: "", commission_percentage: 20, service_type: "standard" }]);
                                       }
                                     }}
                                       className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0 ${selected ? "bg-primary/10" : ""}`}>
@@ -888,7 +887,7 @@ const RepairsPage = () => {
                                 })}
                             </div>
 
-                            <button onClick={() => setPendingServices((prev) => [...prev, { description: "", price: 0, mechanic_id: "", commission_percentage: 0, service_type: "standard" }])}
+                            <button onClick={() => setPendingServices((prev) => [...prev, { description: "", price: 0, mechanic_id: "", commission_percentage: 20, service_type: "standard" }])}
                               className="flex items-center gap-1 text-xs text-primary hover:underline">
                               <Plus className="h-3 w-3" /> Custom Service
                             </button>
@@ -909,16 +908,6 @@ const RepairsPage = () => {
                                       </button>
                                     </div>
                                     <div className="flex items-center gap-2 text-xs">
-                                      <select value={ps.mechanic_id} onChange={(e) => {
-                                        const mech = mechanics.find((m) => m.id === e.target.value);
-                                        setPendingServices((prev) => prev.map((p, i) => i === idx ? { ...p, mechanic_id: e.target.value, commission_percentage: mech?.default_commission_percentage || p.commission_percentage } : p));
-                                      }}
-                                        className="flex-1 rounded border border-border bg-secondary px-2 py-1 text-xs text-foreground">
-                                        <option value="">Assign Mechanic</option>
-                                        {activeMechanics.map((m) => <option key={m.id} value={m.id}>{m.full_name}</option>)}
-                                      </select>
-                                      <input type="number" step="0.1" value={ps.commission_percentage || ""} onChange={(e) => setPendingServices((prev) => prev.map((p, i) => i === idx ? { ...p, commission_percentage: parseFloat(e.target.value) || 0 } : p))}
-                                        placeholder="Comm %" className="w-16 rounded border border-border bg-secondary px-2 py-1 text-xs text-foreground focus:outline-none" />
                                       <select value={ps.service_type} onChange={(e) => setPendingServices((prev) => prev.map((p, i) => i === idx ? { ...p, service_type: e.target.value } : p))}
                                         className="rounded border border-border bg-secondary px-2 py-1 text-xs text-foreground">
                                         <option value="standard">Standard</option>
@@ -939,7 +928,6 @@ const RepairsPage = () => {
                         {services.length > 0 && (
                           <div className="space-y-1">
                             {services.map((s) => {
-                              const mech = mechanics.find((m) => m.id === s.mechanic_id);
                               return (
                                 <div key={s.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
                                   <div className="flex-1 min-w-0">
@@ -949,7 +937,6 @@ const RepairsPage = () => {
                                         <span className="rounded bg-chart-amber/20 px-1.5 py-0.5 text-[10px] font-medium text-chart-amber">Extra</span>
                                       )}
                                     </div>
-                                    {mech && <span className="text-[10px] text-muted-foreground">👷 {mech.full_name} ({Number(s.commission_percentage)}%)</span>}
                                   </div>
                                   <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()}>
                                     <span className="text-muted-foreground">£</span>
