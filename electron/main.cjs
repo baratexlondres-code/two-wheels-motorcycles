@@ -1,6 +1,7 @@
 'use strict';
 
 const { app, BrowserWindow, shell, ipcMain, dialog, Menu } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 
 let mainWindow = null;
@@ -65,10 +66,30 @@ ipcMain.on('window-maximize', () => {
   }
 });
 
-// ─── APP LIFECYCLE ────────────────────────────────────────────
+autoUpdater.on('update-downloaded', () => {
+  dialog
+    .showMessageBox({
+      type: 'info',
+      buttons: ['Reiniciar agora', 'Depois'],
+      defaultId: 0,
+      cancelId: 1,
+      title: 'Atualização disponível',
+      message: 'Uma nova versão foi baixada e está pronta para instalar.',
+    })
+    .then((result) => {
+      if (result.response === 0) autoUpdater.quitAndInstall();
+    })
+    .catch(() => null);
+});
+
 app.whenReady().then(() => {
   buildMenu();
   createWindow();
+
+  autoUpdater.checkForUpdatesAndNotify().catch(() => null);
+  setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch(() => null);
+  }, 30 * 60 * 1000);
 });
 
 app.on('window-all-closed', () => {
