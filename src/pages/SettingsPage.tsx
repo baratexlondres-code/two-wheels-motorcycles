@@ -1,10 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Settings, Building2, Lock, Clock, Percent, Save, Eye, EyeOff } from "lucide-react";
+import { Settings, Building2, Lock, Clock, Save, Eye, EyeOff, RefreshCw } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useRole } from "@/contexts/RoleContext";
+import { forceRefreshApp } from "@/lib/forceRefresh";
 
 const SettingsPage = () => {
   const { isOwner } = useRole();
@@ -13,6 +14,7 @@ const SettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const [showOwnerPw, setShowOwnerPw] = useState(false);
   const [showStaffPw, setShowStaffPw] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchSettings = async () => {
     setLoading(true);
@@ -37,6 +39,12 @@ const SettingsPage = () => {
     await Promise.all(promises);
     toast({ title: "Settings saved" });
     setSaving(false);
+  };
+
+  const handleForceRefresh = async () => {
+    setRefreshing(true);
+    toast({ title: "A atualizar...", description: "A app vai limpar cache e recarregar." });
+    await forceRefreshApp();
   };
 
   if (loading) {
@@ -177,13 +185,29 @@ const SettingsPage = () => {
         <p className="text-xs text-muted-foreground">These are the default repair status stages used in your workflow.</p>
       </motion.div>
 
+      {/* App Update */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}
+        className="rounded-xl border border-border bg-card p-5 space-y-3">
+        <h2 className="text-lg font-semibold text-foreground">Atualização do App</h2>
+        <p className="text-sm text-muted-foreground">
+          Se algum dispositivo ficar preso em versão antiga, use este botão para limpar cache e recarregar a versão nova.
+        </p>
+        <button
+          onClick={handleForceRefresh}
+          disabled={refreshing}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110 disabled:opacity-50"
+        >
+          <RefreshCw className="h-4 w-4" /> {refreshing ? "A atualizar..." : "Forçar atualização neste dispositivo"}
+        </button>
+      </motion.div>
+
       {/* About */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
         className="rounded-xl border border-border bg-card p-5">
         <h2 className="text-lg font-semibold text-foreground mb-2">About</h2>
         <div className="space-y-1 text-sm text-muted-foreground">
           <p>Two Wheels Motorcycles — Workshop Management System</p>
-          <p>Version 1.0.0</p>
+          <p>Version {__APP_VERSION}</p>
           <p className="text-xs mt-2">Private system for internal use only. All activity is logged.</p>
         </div>
       </motion.div>
@@ -192,3 +216,4 @@ const SettingsPage = () => {
 };
 
 export default SettingsPage;
+
