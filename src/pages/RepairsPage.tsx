@@ -749,13 +749,97 @@ const RepairsPage = () => {
                           <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                             <Settings2 className="inline h-3 w-3 mr-1" />Services {services.length > 0 && `(£${servicesTotal.toFixed(2)})`}
                           </label>
-                          {!isLocked && (
-                            <button onClick={() => setShowAddService(showAddService === job.id ? null : job.id)}
-                              className="text-xs font-semibold text-primary hover:brightness-125 flex items-center gap-1">
-                              <Plus className="h-3 w-3" /> Add Service
-                            </button>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {!isLocked && (
+                              <>
+                                <button onClick={() => { setShowAddPart(showAddPart === job.id ? null : job.id); setShowAddService(null); }}
+                                  className="text-xs font-semibold text-primary hover:brightness-125 flex items-center gap-1">
+                                  <Package className="h-3 w-3" /> Add Parts
+                                </button>
+                                <button onClick={() => { setShowAddService(showAddService === job.id ? null : job.id); setShowAddPart(null); }}
+                                  className="text-xs font-semibold text-primary hover:brightness-125 flex items-center gap-1">
+                                  <Plus className="h-3 w-3" /> Add Service
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
+
+                        {/* Inline Parts Search (from Services tab) */}
+                        {showAddPart === job.id && !isLocked && (
+                          <div className="mt-2 space-y-2 mb-4 rounded-lg border border-border/50 bg-secondary/20 p-3">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                              <Package className="h-3 w-3" /> Add Stock Parts (deducts from inventory)
+                            </p>
+                            <div className="relative">
+                              <div className="flex items-center gap-2 rounded border border-border bg-card px-2 py-1.5">
+                                <Search className="h-3 w-3 text-muted-foreground shrink-0" />
+                                <input value={partSearch} onChange={(e) => setPartSearch(e.target.value)}
+                                  placeholder="Search stock parts..."
+                                  onKeyDown={(e) => { if (e.key === "Escape") setPartSearch(""); }}
+                                  className="w-full bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                                {partSearch.trim() && (
+                                  <button onClick={() => setPartSearch("")} className="text-muted-foreground hover:text-foreground shrink-0"><X className="h-3 w-3" /></button>
+                                )}
+                              </div>
+                              {partSearch.trim().length > 0 && (() => {
+                                const q = partSearch.toLowerCase();
+                                const stockMatches = stockItems.filter((s) =>
+                                  s.name.toLowerCase().includes(q) || (s.sku && s.sku.toLowerCase().includes(q))
+                                );
+                                if (stockMatches.length === 0) return <p className="text-[10px] text-muted-foreground mt-1">No stock items found for "{partSearch}"</p>;
+                                return (
+                                  <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
+                                    {stockMatches.map((s) => {
+                                      const isSelected = pendingParts.some((p) => p.stock_item_id === s.id);
+                                      return (
+                                        <div key={`s-${s.id}`} onClick={() => togglePendingPart(s.id)}
+                                          className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0 ${isSelected ? "bg-primary/10" : ""}`}>
+                                          <div className="flex items-center gap-2">
+                                            <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center ${isSelected ? "bg-primary border-primary" : "border-border"}`}>
+                                              {isSelected && <CheckCircle className="h-2.5 w-2.5 text-primary-foreground" />}
+                                            </div>
+                                            <span className="text-foreground">{s.name}</span>
+                                            {s.sku && <span className="text-muted-foreground">({s.sku})</span>}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground text-[10px]">qty: {s.quantity}</span>
+                                            <span className="rounded bg-chart-blue/10 px-1.5 py-0.5 text-chart-blue text-[10px]">£{Number(s.sell_price).toFixed(2)}</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                            {pendingParts.filter(p => p.stock_item_id !== "__manual__").length > 0 && (
+                              <div className="space-y-1.5 mt-2">
+                                <p className="text-xs font-semibold text-foreground">Stock parts selected:</p>
+                                {pendingParts.filter(p => p.stock_item_id !== "__manual__").map((pp) => {
+                                  const item = stockItems.find(s => s.id === pp.stock_item_id);
+                                  return (
+                                    <div key={pp.stock_item_id} className="flex items-center gap-2 rounded bg-primary/5 px-3 py-1.5 text-xs">
+                                      <span className="flex-1 text-foreground">{item?.name}</span>
+                                      <span className="text-muted-foreground">£{Number(item?.sell_price || 0).toFixed(2)}</span>
+                                      <span className="text-muted-foreground">×</span>
+                                      <input type="number" min="1" max={item?.quantity || 99} value={pp.quantity}
+                                        onChange={(e) => updatePendingPartQty(pp.stock_item_id, parseInt(e.target.value) || 1)}
+                                        className="w-12 rounded border border-border bg-card px-1 py-0.5 text-xs text-foreground text-center focus:outline-none" />
+                                      <button onClick={() => togglePendingPart(pp.stock_item_id)} className="text-muted-foreground hover:text-destructive">
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                                <button onClick={() => handleAddParts(job.id)}
+                                  className="w-full rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:brightness-110">
+                                  Add {pendingParts.filter(p => p.stock_item_id !== "__manual__").length} Part(s) from Stock
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {showAddService === job.id && !isLocked && (
                           <div className="mt-2 space-y-2 mb-4">
@@ -852,16 +936,64 @@ const RepairsPage = () => {
                           </div>
                         )}
 
+                        {/* Existing Parts (shown in services tab) */}
+                        {parts.length > 0 && (
+                          <div className="mb-2">
+                            <label className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1 block">
+                              <Package className="inline h-3 w-3 mr-1" />Parts Used (£{partsTotal.toFixed(2)})
+                            </label>
+                            <div className="space-y-1">
+                              {parts.map((p) => {
+                                const item = stockItems.find((s) => s.id === p.stock_item_id);
+                                return (
+                                  <div key={p.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
+                                    <span className="text-foreground">{item?.name || "Unknown"} × {p.quantity}</span>
+                                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                      <span className="text-muted-foreground">£{(Number(p.unit_price) * p.quantity).toFixed(2)}</span>
+                                      {!isLocked && (
+                                        <button onClick={(e) => { e.stopPropagation(); handleRemovePart(p); }} className="text-muted-foreground hover:text-destructive p-1 min-h-[36px] min-w-[36px] flex items-center justify-center">
+                                          <X className="h-3 w-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {manualParts.map((s) => (
+                                <div key={s.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
+                                  <span className="text-foreground">{s.description.replace(/^\[PART\]\s*/, "")}</span>
+                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                    <span className="text-muted-foreground">£{Number(s.price).toFixed(2)}</span>
+                                    {!isLocked && (
+                                      <button onClick={(e) => { e.stopPropagation(); handleRemoveService(s.id); }} className="text-muted-foreground hover:text-destructive p-1 min-h-[36px] min-w-[36px] flex items-center justify-center">
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
                         {services.length > 0 && (
                           <div className="space-y-1">
                             {services.map((s) => {
                               return (
                                 <div key={s.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
-                                  <div className="flex-1 min-w-0">
+                                  <div className="flex-1 min-w-0" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center gap-1.5">
-                                      <span className="text-foreground">{s.description}</span>
+                                      <input type="text" defaultValue={s.description} disabled={isLocked}
+                                        onBlur={async (e) => {
+                                          const newDesc = e.target.value.trim();
+                                          if (newDesc && newDesc !== s.description) {
+                                            await supabase.from("repair_services").update({ description: newDesc } as any).eq("id", s.id);
+                                            fetchData();
+                                          }
+                                        }}
+                                        className="bg-transparent text-foreground focus:outline-none border-b border-transparent focus:border-primary w-full disabled:opacity-80" />
                                       {s.service_type === "extra" && (
-                                        <span className="rounded bg-chart-amber/20 px-1.5 py-0.5 text-[10px] font-medium text-chart-amber">Extra</span>
+                                        <span className="rounded bg-chart-amber/20 px-1.5 py-0.5 text-[10px] font-medium text-chart-amber shrink-0">Extra</span>
                                       )}
                                     </div>
                                   </div>
