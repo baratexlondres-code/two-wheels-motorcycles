@@ -97,9 +97,24 @@ const AccessoriesPage = () => {
 
   const usedCategories = ["All", ...new Set(accessories.map((a) => a.category))];
   const filtered = accessories.filter((a) => {
-    const matchSearch = a.name.toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    const matchSearch = !q || a.name.toLowerCase().includes(q) || (a.sku && a.sku.toLowerCase().includes(q)) || a.category.toLowerCase().includes(q);
     const matchCategory = filterCategory === "All" || a.category === filterCategory;
     return matchSearch && matchCategory;
+  }).sort((a, b) => {
+    if (!search) return a.name.localeCompare(b.name);
+    const q = search.toLowerCase();
+    // Prioritize: exact SKU match > SKU starts with > name starts with > contains
+    const scoreItem = (item: StockItem) => {
+      const sku = (item.sku || "").toLowerCase();
+      const name = item.name.toLowerCase();
+      if (sku === q) return 0;
+      if (sku.startsWith(q)) return 1;
+      if (name.startsWith(q)) return 2;
+      if (sku.includes(q)) return 3;
+      return 4;
+    };
+    return scoreItem(a) - scoreItem(b) || a.name.localeCompare(b.name);
   });
 
   return (
