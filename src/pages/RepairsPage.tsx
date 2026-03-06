@@ -961,47 +961,77 @@ const RepairsPage = () => {
                                 );
                               })()}
                             </div>
-                            <div className="flex gap-2">
-                              <input value={pendingParts.find((p) => p.stock_item_id === "__manual__")?.unit_price?.toString() || ""}
-                                onChange={(e) => {
-                                  const price = e.target.value;
-                                  setPendingParts((prev) => {
-                                    const exists = prev.find((p) => p.stock_item_id === "__manual__");
-                                    if (exists) return prev.map((p) => p.stock_item_id === "__manual__" ? { ...p, unit_price: parseFloat(price) || 0 } : p);
-                                    return [...prev, { stock_item_id: "__manual__", quantity: 1, unit_price: parseFloat(price) || 0, name: partSearch.trim() }];
-                                  });
-                                }}
-                                placeholder="Price (£)" type="number" min="0" step="0.01"
-                                className="w-28 rounded border border-border bg-card px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
-                              <input value={pendingParts.find((p) => p.stock_item_id === "__manual__")?.quantity?.toString() || "1"}
-                                onChange={(e) => {
-                                  const qty = parseInt(e.target.value) || 1;
-                                  setPendingParts((prev) => {
-                                    const exists = prev.find((p) => p.stock_item_id === "__manual__");
-                                    if (exists) return prev.map((p) => p.stock_item_id === "__manual__" ? { ...p, quantity: Math.max(1, qty) } : p);
-                                    return [...prev, { stock_item_id: "__manual__", quantity: Math.max(1, qty), unit_price: 0, name: partSearch.trim() }];
-                                  });
-                                }}
-                                placeholder="Qty" type="number" min="1"
-                                className="w-16 rounded border border-border bg-card px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
-                              <button
-                                onClick={async () => {
-                                  const name = partSearch.trim();
-                                  if (!name) { toast({ title: "Enter a part name", variant: "destructive" }); return; }
-                                  const manualEntry = pendingParts.find((p) => p.stock_item_id === "__manual__");
-                                  const price = manualEntry?.unit_price || 0;
-                                  const qty = manualEntry?.quantity || 1;
-                                  await supabase.from("repair_services").insert({
-                                    repair_job_id: job.id, description: `[PART] ${name}`, price: price * qty,
-                                  } as any);
-                                  const saved: string[] = (() => { try { return JSON.parse(localStorage.getItem("tw_parts_history") || "[]"); } catch { return []; } })();
-                                  if (!saved.includes(name)) { localStorage.setItem("tw_parts_history", JSON.stringify([...saved, name])); }
-                                  toast({ title: `"${name}" added` });
-                                  setShowAddPart(null); setPendingParts([]); setPartSearch(""); fetchData();
-                                }}
-                                className="flex-1 rounded bg-primary py-1.5 text-xs font-semibold text-primary-foreground hover:brightness-110">
-                                + Add Part
-                              </button>
+                            {/* Selected stock parts */}
+                            {pendingParts.filter(p => p.stock_item_id !== "__manual__").length > 0 && (
+                              <div className="space-y-1.5">
+                                <p className="text-xs font-semibold text-foreground">Stock parts selected:</p>
+                                {pendingParts.filter(p => p.stock_item_id !== "__manual__").map((pp) => {
+                                  const item = stockItems.find(s => s.id === pp.stock_item_id);
+                                  return (
+                                    <div key={pp.stock_item_id} className="flex items-center gap-2 rounded bg-primary/5 px-3 py-1.5 text-xs">
+                                      <span className="flex-1 text-foreground">{item?.name}</span>
+                                      <span className="text-muted-foreground">£{Number(item?.sell_price || 0).toFixed(2)}</span>
+                                      <span className="text-muted-foreground">×</span>
+                                      <input type="number" min="1" max={item?.quantity || 99} value={pp.quantity}
+                                        onChange={(e) => updatePendingPartQty(pp.stock_item_id, parseInt(e.target.value) || 1)}
+                                        className="w-12 rounded border border-border bg-card px-1 py-0.5 text-xs text-foreground text-center focus:outline-none" />
+                                      <button onClick={() => togglePendingPart(pp.stock_item_id)} className="text-muted-foreground hover:text-destructive">
+                                        <X className="h-3 w-3" />
+                                      </button>
+                                    </div>
+                                  );
+                                })}
+                                <button onClick={() => handleAddParts(job.id)}
+                                  className="w-full rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:brightness-110">
+                                  Add {pendingParts.filter(p => p.stock_item_id !== "__manual__").length} Part(s) from Stock
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Manual part entry */}
+                            <div className="border-t border-border/50 pt-2 mt-2">
+                              <p className="text-[10px] text-muted-foreground mb-1">Or add a manual part (won't deduct stock):</p>
+                              <div className="flex gap-2">
+                                <input value={pendingParts.find((p) => p.stock_item_id === "__manual__")?.name || partSearch}
+                                  onChange={(e) => {
+                                    setPartSearch(e.target.value);
+                                    setPendingParts((prev) => {
+                                      const exists = prev.find((p) => p.stock_item_id === "__manual__");
+                                      if (exists) return prev.map((p) => p.stock_item_id === "__manual__" ? { ...p, name: e.target.value } : p);
+                                      return prev;
+                                    });
+                                  }}
+                                  placeholder="Part name" className="flex-1 rounded border border-border bg-card px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                                <input value={pendingParts.find((p) => p.stock_item_id === "__manual__")?.unit_price?.toString() || ""}
+                                  onChange={(e) => {
+                                    const price = e.target.value;
+                                    setPendingParts((prev) => {
+                                      const exists = prev.find((p) => p.stock_item_id === "__manual__");
+                                      if (exists) return prev.map((p) => p.stock_item_id === "__manual__" ? { ...p, unit_price: parseFloat(price) || 0 } : p);
+                                      return [...prev, { stock_item_id: "__manual__", quantity: 1, unit_price: parseFloat(price) || 0, name: partSearch.trim() }];
+                                    });
+                                  }}
+                                  placeholder="£" type="number" min="0" step="0.01"
+                                  className="w-20 rounded border border-border bg-card px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none" />
+                                <button
+                                  onClick={async () => {
+                                    const manualEntry = pendingParts.find((p) => p.stock_item_id === "__manual__");
+                                    const name = manualEntry?.name?.trim() || partSearch.trim();
+                                    if (!name) { toast({ title: "Enter a part name", variant: "destructive" }); return; }
+                                    const price = manualEntry?.unit_price || 0;
+                                    const qty = manualEntry?.quantity || 1;
+                                    await supabase.from("repair_services").insert({
+                                      repair_job_id: job.id, description: `[PART] ${name}`, price: price * qty,
+                                    } as any);
+                                    const saved: string[] = (() => { try { return JSON.parse(localStorage.getItem("tw_parts_history") || "[]"); } catch { return []; } })();
+                                    if (!saved.includes(name)) { localStorage.setItem("tw_parts_history", JSON.stringify([...saved, name])); }
+                                    toast({ title: `"${name}" added (manual)` });
+                                    setShowAddPart(null); setPendingParts([]); setPartSearch(""); fetchData();
+                                  }}
+                                  className="rounded bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80">
+                                  + Manual
+                                </button>
+                              </div>
                             </div>
                           </div>
                         )}
