@@ -919,35 +919,42 @@ const RepairsPage = () => {
                                   <button onClick={() => setPartSearch("")} className="text-muted-foreground hover:text-foreground shrink-0"><X className="h-3 w-3" /></button>
                                 )}
                               </div>
-                              {partSearch.trim().length > 0 && (() => {
+                          {partSearch.trim().length > 0 && (() => {
                                 const savedParts: string[] = (() => { try { return JSON.parse(localStorage.getItem("tw_parts_history") || "[]"); } catch { return []; } })();
-                                const historyMatches = savedParts.filter((p) => p.toLowerCase().includes(partSearch.toLowerCase()) && p.toLowerCase() !== partSearch.toLowerCase());
+                                const q = partSearch.toLowerCase();
+                                const historyMatches = savedParts.filter((p) => p.toLowerCase().includes(q) && p.toLowerCase() !== q);
                                 const stockMatches = stockItems.filter((s) =>
-                                  (s.name.toLowerCase().includes(partSearch.toLowerCase()) || (s.sku && s.sku.toLowerCase().includes(partSearch.toLowerCase())))
-                                  && !historyMatches.some((h) => h.toLowerCase() === s.name.toLowerCase())
+                                  s.name.toLowerCase().includes(q) || (s.sku && s.sku.toLowerCase().includes(q))
                                 );
                                 if (historyMatches.length === 0 && stockMatches.length === 0) return null;
                                 return (
-                                  <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-48 overflow-y-auto">
+                                  <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
+                                    {stockMatches.map((s) => {
+                                      const isSelected = pendingParts.some((p) => p.stock_item_id === s.id);
+                                      return (
+                                        <div key={`s-${s.id}`} onClick={() => {
+                                          togglePendingPart(s.id);
+                                        }}
+                                          className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0 ${isSelected ? "bg-primary/10" : ""}`}>
+                                          <div className="flex items-center gap-2">
+                                            <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center ${isSelected ? "bg-primary border-primary" : "border-border"}`}>
+                                              {isSelected && <CheckCircle className="h-2.5 w-2.5 text-primary-foreground" />}
+                                            </div>
+                                            <span className="text-foreground">{s.name}</span>
+                                            {s.sku && <span className="text-muted-foreground">({s.sku})</span>}
+                                          </div>
+                                          <div className="flex items-center gap-2">
+                                            <span className="text-muted-foreground text-[10px]">qty: {s.quantity}</span>
+                                            <span className="rounded bg-chart-blue/10 px-1.5 py-0.5 text-chart-blue text-[10px]">£{Number(s.sell_price).toFixed(2)}</span>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
                                     {historyMatches.slice(0, 4).map((p) => (
                                       <div key={`h-${p}`} onClick={() => setPartSearch(p)}
                                         className="flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0">
                                         <span className="text-foreground">{p}</span>
                                         <span className="rounded bg-primary/10 px-1.5 py-0.5 text-primary text-[10px]">saved</span>
-                                      </div>
-                                    ))}
-                                    {stockMatches.slice(0, 6).map((s) => (
-                                      <div key={`s-${s.id}`} onClick={() => {
-                                        setPartSearch(s.name);
-                                        setPendingParts((prev) => {
-                                          const exists = prev.find((p) => p.stock_item_id === "__manual__");
-                                          if (exists) return prev.map((p) => p.stock_item_id === "__manual__" ? { ...p, unit_price: Number(s.sell_price), name: s.name } : p);
-                                          return [...prev, { stock_item_id: "__manual__", quantity: 1, unit_price: Number(s.sell_price), name: s.name }];
-                                        });
-                                      }}
-                                        className="flex items-center justify-between px-3 py-1.5 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0">
-                                        <div><span className="text-foreground">{s.name}</span>{s.sku && <span className="text-muted-foreground ml-1">({s.sku})</span>}</div>
-                                        <span className="rounded bg-chart-blue/10 px-1.5 py-0.5 text-chart-blue text-[10px]">stock · £{Number(s.sell_price).toFixed(2)}</span>
                                       </div>
                                     ))}
                                   </div>
