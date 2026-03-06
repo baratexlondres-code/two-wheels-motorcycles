@@ -1318,10 +1318,13 @@ const RepairsPage = () => {
                         {job.delivered_at && <span>Delivered: {new Date(job.delivered_at).toLocaleDateString("en-GB")}</span>}
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        {isLocked && isOwner && job.payment_status !== "paid" && (
+                        {isLocked && isOwner && (
                           <button onClick={async (e) => {
                             e.stopPropagation();
-                            if (!window.confirm("Reopen this Service Order? It will be unlocked for editing.")) return;
+                            const msg = job.payment_status === "paid"
+                              ? "This SO is already paid. Reopen anyway for editing?"
+                              : "Reopen this Service Order? It will be unlocked for editing.";
+                            if (!window.confirm(msg)) return;
                             await supabase.from("repair_jobs").update({ locked: false, status: "in_repair", completed_at: null } as any).eq("id", job.id);
                             await fetchData();
                             toast({ title: "Service Order reopened" });
