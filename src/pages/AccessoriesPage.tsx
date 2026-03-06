@@ -15,6 +15,7 @@ interface StockItem {
   min_quantity: number;
   sell_price: number;
   is_accessory: boolean;
+  sku: string | null;
 }
 
 interface Customer { id: string; name: string; }
