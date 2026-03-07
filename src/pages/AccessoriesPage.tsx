@@ -6,6 +6,7 @@ import ProductScanner, { type ProductScanResult } from "@/components/ProductScan
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { useRole } from "@/contexts/RoleContext";
+import { rankStockItems } from "@/lib/stockSearch";
 
 interface StockItem {
   id: string;
@@ -97,26 +98,12 @@ const AccessoriesPage = () => {
   const lowStock = accessories.filter((a) => a.quantity <= a.min_quantity && a.min_quantity > 0);
 
   const usedCategories = ["All", ...new Set(accessories.map((a) => a.category))];
-  const filtered = accessories.filter((a) => {
-    const q = search.toLowerCase();
-    const matchSearch = !q || a.name.toLowerCase().includes(q) || (a.sku && a.sku.toLowerCase().includes(q)) || a.category.toLowerCase().includes(q);
-    const matchCategory = filterCategory === "All" || a.category === filterCategory;
-    return matchSearch && matchCategory;
-  }).sort((a, b) => {
-    if (!search) return a.name.localeCompare(b.name);
-    const q = search.toLowerCase();
-    // Prioritize: exact SKU match > SKU starts with > name starts with > contains
-    const scoreItem = (item: StockItem) => {
-      const sku = (item.sku || "").toLowerCase();
-      const name = item.name.toLowerCase();
-      if (sku === q) return 0;
-      if (sku.startsWith(q)) return 1;
-      if (name.startsWith(q)) return 2;
-      if (sku.includes(q)) return 3;
-      return 4;
-    };
-    return scoreItem(a) - scoreItem(b) || a.name.localeCompare(b.name);
-  });
+  const filteredBase = accessories.filter((a) => filterCategory === "All" || a.category === filterCategory);
+  const filtered = (() => {
+    const q = search.trim();
+    if (!q) return [...filteredBase].sort((a, b) => a.name.localeCompare(b.name));
+    return rankStockItems(filteredBase, q);
+  })();
 
   return (
     <div className="space-y-6 p-6">
