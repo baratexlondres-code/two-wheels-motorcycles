@@ -8,6 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { toast as sonnerToast } from "sonner";
 import logoSrc from "@/assets/logo.png";
 import { format } from "date-fns";
+import { rankStockItems } from "@/lib/stockSearch";
 
 interface StockItem {
   id: string;
@@ -109,12 +110,16 @@ const StockPage = () => {
 
   const lowStockItems = items.filter((i) => i.quantity <= i.min_quantity && i.min_quantity > 0);
 
-  const filtered = items.filter((i) => {
-    const matchSearch = i.name.toLowerCase().includes(search.toLowerCase()) || i.sku?.toLowerCase().includes(search.toLowerCase());
+  const filteredBase = items.filter((i) => {
     const matchCategory = filterCategory === "All" || i.category === filterCategory;
     const matchLow = !showLowOnly || (i.quantity <= i.min_quantity && i.min_quantity > 0);
-    return matchSearch && matchCategory && matchLow;
+    return matchCategory && matchLow;
   });
+  const filtered = (() => {
+    const q = search.trim();
+    if (!q) return [...filteredBase].sort((a, b) => a.name.localeCompare(b.name));
+    return rankStockItems(filteredBase, q);
+  })();
 
   const usedCategories = ["All", ...new Set(items.map((i) => i.category))];
 

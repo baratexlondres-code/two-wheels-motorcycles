@@ -9,6 +9,7 @@ import InvoiceModal from "@/components/InvoiceModal";
 import WorkOrderModal from "@/components/WorkOrderModal";
 import BackButton from "@/components/BackButton";
 import { useRole } from "@/contexts/RoleContext";
+import { rankStockItems } from "@/lib/stockSearch";
 
 interface RepairJob {
   id: string;
@@ -783,10 +784,7 @@ const RepairsPage = () => {
                                 )}
                               </div>
                               {partSearch.trim().length > 0 && (() => {
-                                const q = partSearch.toLowerCase();
-                                const stockMatches = stockItems.filter((s) =>
-                                  s.name.toLowerCase().includes(q) || (s.sku && s.sku.toLowerCase().includes(q))
-                                );
+                                const stockMatches = rankStockItems(stockItems, partSearch);
                                 if (stockMatches.length === 0) return <p className="text-[10px] text-muted-foreground mt-1">No stock items found for "{partSearch}"</p>;
                                 return (
                                   <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
@@ -1055,9 +1053,7 @@ const RepairsPage = () => {
                                 const savedParts: string[] = (() => { try { return JSON.parse(localStorage.getItem("tw_parts_history") || "[]"); } catch { return []; } })();
                                 const q = partSearch.toLowerCase();
                                 const historyMatches = savedParts.filter((p) => p.toLowerCase().includes(q) && p.toLowerCase() !== q);
-                                const stockMatches = stockItems.filter((s) =>
-                                  s.name.toLowerCase().includes(q) || (s.sku && s.sku.toLowerCase().includes(q))
-                                );
+                                const stockMatches = rankStockItems(stockItems, partSearch);
                                 if (historyMatches.length === 0 && stockMatches.length === 0) return null;
                                 return (
                                   <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
