@@ -23,6 +23,7 @@ import CustomersPage from "@/pages/CustomersPage";
 import InvoicesPage from "@/pages/InvoicesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
+import NotificationsPage from "@/pages/NotificationsPage";
 
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from "react";
