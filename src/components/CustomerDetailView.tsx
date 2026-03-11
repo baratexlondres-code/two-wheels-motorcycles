@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Phone, Mail, MapPin, Bike, Trash2, Edit2, StickyNote, Wrench, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import InstallmentPlansSection from "@/components/InstallmentPlansSection";
 
 interface Customer {
   id: string;
