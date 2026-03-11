@@ -157,6 +157,9 @@ const CustomerDetailView = ({ customer, onBack, onEdit, onRefresh }: CustomerDet
         </div>
       </div>
 
+      {/* Installment Plans */}
+      <InstallmentPlansSection customerId={customer.id} customerName={customer.name} customerPhone={customer.phone} />
+
       {/* Repair History */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="border-b border-border p-4">
