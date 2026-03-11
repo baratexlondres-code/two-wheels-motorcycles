@@ -1,6 +1,6 @@
 import {
   Wrench, Bike, ShoppingCart, Package, FileText,
-  BarChart3, Settings, LayoutDashboard, Users, LogOut, Shield, MessageSquare, Power,
+  BarChart3, Settings, LayoutDashboard, Users, LogOut, Shield, MessageSquare, Power, Bell,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRole } from "@/contexts/RoleContext";
