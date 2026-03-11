@@ -8,6 +8,7 @@ import { KPICard } from "@/components/KPICard";
 import { useRole } from "@/contexts/RoleContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { OutstandingInstallmentsWidget, CustomerDebtWidget } from "@/components/DashboardInstallmentWidgets";
 
 interface VehicleStats {
   topBrand: string;
