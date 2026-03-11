@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Phone, Mail, MapPin, Bike, Trash2, Edit2, StickyNote, Wrench, Plus } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import InstallmentPlansSection from "@/components/InstallmentPlansSection";
 
 interface Customer {
   id: string;
@@ -155,6 +156,9 @@ const CustomerDetailView = ({ customer, onBack, onEdit, onRefresh }: CustomerDet
           ))}
         </div>
       </div>
+
+      {/* Installment Plans */}
+      <InstallmentPlansSection customerId={customer.id} customerName={customer.name} customerPhone={customer.phone} />
 
       {/* Repair History */}
       <div className="rounded-xl border border-border bg-card overflow-hidden">

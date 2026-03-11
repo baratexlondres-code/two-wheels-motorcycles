@@ -23,6 +23,7 @@ import CustomersPage from "@/pages/CustomersPage";
 import InvoicesPage from "@/pages/InvoicesPage";
 import SettingsPage from "@/pages/SettingsPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
+import NotificationsPage from "@/pages/NotificationsPage";
 
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from "react";
@@ -97,6 +98,7 @@ const AppContent = () => {
             
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/whatsapp" element={<OwnerRoute><WhatsAppPage /></OwnerRoute>} />
+            <Route path="/notifications" element={<OwnerRoute><NotificationsPage /></OwnerRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </MainLayout>

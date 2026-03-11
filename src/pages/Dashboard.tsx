@@ -8,6 +8,7 @@ import { KPICard } from "@/components/KPICard";
 import { useRole } from "@/contexts/RoleContext";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { OutstandingInstallmentsWidget, CustomerDebtWidget } from "@/components/DashboardInstallmentWidgets";
 
 interface VehicleStats {
   topBrand: string;
@@ -276,6 +277,14 @@ const Dashboard = () => {
           </div>
         </motion.div>
       </div>
+
+      {/* Installment Widgets (owner only) */}
+      {isOwner && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <OutstandingInstallmentsWidget />
+          <CustomerDebtWidget />
+        </div>
+      )}
 
       {/* Quick Actions */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}

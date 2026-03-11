@@ -1,6 +1,6 @@
 import {
   Wrench, Bike, ShoppingCart, Package, FileText,
-  BarChart3, Settings, LayoutDashboard, Users, LogOut, Shield, MessageSquare, Power,
+  BarChart3, Settings, LayoutDashboard, Users, LogOut, Shield, MessageSquare, Power, Bell,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useRole } from "@/contexts/RoleContext";
@@ -30,6 +30,7 @@ const allMainItems = [
   { title: "Reports", url: "/reports", icon: BarChart3, ownerOnly: true },
   
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, ownerOnly: true },
+  { title: "Notifications", url: "/notifications", icon: Bell, ownerOnly: true },
 ];
 
 const systemItems = [
