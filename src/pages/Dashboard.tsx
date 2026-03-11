@@ -278,6 +278,14 @@ const Dashboard = () => {
         </motion.div>
       </div>
 
+      {/* Installment Widgets (owner only) */}
+      {isOwner && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <OutstandingInstallmentsWidget />
+          <CustomerDebtWidget />
+        </div>
+      )}
+
       {/* Quick Actions */}
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
         className="grid grid-cols-2 gap-3 sm:grid-cols-4">

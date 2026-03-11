@@ -30,6 +30,7 @@ const allMainItems = [
   { title: "Reports", url: "/reports", icon: BarChart3, ownerOnly: true },
   
   { title: "WhatsApp", url: "/whatsapp", icon: MessageSquare, ownerOnly: true },
+  { title: "Notifications", url: "/notifications", icon: Bell, ownerOnly: true },
 ];
 
 const systemItems = [
