@@ -370,7 +370,8 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
                     <div>
                       <label className="text-xs text-muted-foreground">Installment {index + 1} Amount (£)</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         value={draft.amount}
                         onChange={(e) => updateInstallmentDraft(index, "amount", e.target.value)}
                         className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
