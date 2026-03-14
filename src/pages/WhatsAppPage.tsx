@@ -105,12 +105,27 @@ const WhatsAppPage = () => {
   };
 
   const saveTemplate = async (id: string) => {
-    await supabase.from("whatsapp_templates").update({
-      name: editForm.name,
-      category: editForm.category,
-      message_body: editForm.message_body,
+    const name = editForm.name.trim();
+    const category = editForm.category.trim();
+    const messageBody = editForm.message_body.trim();
+
+    if (!name || !category || !messageBody) {
+      toast({ title: "Error", description: "Please fill all template fields", variant: "destructive" });
+      return;
+    }
+
+    const { error } = await supabase.from("whatsapp_templates").update({
+      name,
+      category,
+      message_body: messageBody,
       updated_at: new Date().toISOString(),
     }).eq("id", id);
+
+    if (error) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+      return;
+    }
+
     setEditingTemplate(null);
     toast({ title: "Template updated" });
     loadData();
