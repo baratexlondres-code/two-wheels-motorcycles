@@ -354,7 +354,7 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
             </div>
           </div>
 
-          {totalPreview > 0 && (
+          {installmentDrafts.length > 0 && (
             <div className="space-y-3 rounded-lg border border-border bg-card p-3 text-sm">
               <div>
                 <p className="text-muted-foreground">Set each installment amount and date:</p>
