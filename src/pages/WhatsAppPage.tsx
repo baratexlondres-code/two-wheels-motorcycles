@@ -21,6 +21,8 @@ const WhatsAppPage = () => {
   const [waSettings, setWaSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", category: "", message_body: "" });
 
   useEffect(() => {
     loadData();
@@ -95,6 +97,27 @@ const WhatsAppPage = () => {
   const toggleTemplate = async (id: string, active: boolean) => {
     await supabase.from("whatsapp_templates").update({ active: !active }).eq("id", id);
     loadData();
+  };
+
+  const startEditTemplate = (t: any) => {
+    setEditingTemplate(t.id);
+    setEditForm({ name: t.name, category: t.category, message_body: t.message_body });
+  };
+
+  const saveTemplate = async (id: string) => {
+    await supabase.from("whatsapp_templates").update({
+      name: editForm.name,
+      category: editForm.category,
+      message_body: editForm.message_body,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
+    setEditingTemplate(null);
+    toast({ title: "Template updated" });
+    loadData();
+  };
+
+  const cancelEdit = () => {
+    setEditingTemplate(null);
   };
 
   const updateSetting = (key: string, value: string) => {
@@ -251,26 +274,86 @@ const WhatsAppPage = () => {
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
           {templates.map((t: any) => (
             <div key={t.id} className="rounded-xl border border-border bg-card p-4">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${t.active ? "bg-green-500" : "bg-muted-foreground"}`} />
-                  <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
-                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground uppercase">{t.category}</span>
+              {editingTemplate === t.id ? (
+                /* Edit Mode */
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Name</label>
+                      <input type="text" value={editForm.name}
+                        onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold text-muted-foreground uppercase">Category</label>
+                      <select value={editForm.category}
+                        onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}
+                        className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none">
+                        <option value="mot_reminder_30">MOT Reminder 30d</option>
+                        <option value="mot_reminder_7">MOT Reminder 7d</option>
+                        <option value="oil_change">Oil Change / Service</option>
+                        <option value="inactive_6m">Inactive 6 months</option>
+                        <option value="inactive_12m">Inactive 12 months</option>
+                        <option value="promotion_free_check">Promo: Free Check</option>
+                        <option value="promotion_oil">Promo: Oil Change</option>
+                        <option value="promotion_brake">Promo: Brake Service</option>
+                        <option value="seasonal">Seasonal</option>
+                        <option value="pass_by">Pass By</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold text-muted-foreground uppercase">Message Body</label>
+                    <textarea value={editForm.message_body}
+                      onChange={e => setEditForm(f => ({ ...f, message_body: e.target.value }))}
+                      rows={5}
+                      className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:border-primary focus:outline-none resize-y" />
+                    <p className="text-[10px] text-muted-foreground mt-1">
+                      Variables: {"{{FirstName}}"}, {"{{FullName}}"}, {"{{VehicleModel}}"}, {"{{LicensePlate}}"}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={cancelEdit}
+                      className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary/80">
+                      Cancel
+                    </button>
+                    <button onClick={() => saveTemplate(t.id)}
+                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:brightness-110">
+                      Save
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => toggleTemplate(t.id, t.active)}
-                  className={`rounded-lg px-3 py-1 text-xs font-medium ${
-                    t.active ? "bg-green-600/20 text-green-400 hover:bg-green-600/30" : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                  }`}>
-                  {t.active ? "Active" : "Inactive"}
-                </button>
-              </div>
-              <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{t.message_body}</p>
-              {t.variables?.length > 0 && (
-                <div className="mt-2 flex gap-1">
-                  {t.variables.map((v: string) => (
-                    <span key={v} className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary font-mono">{`{{${v}}}`}</span>
-                  ))}
-                </div>
+              ) : (
+                /* View Mode */
+                <>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className={`h-2 w-2 rounded-full ${t.active ? "bg-green-500" : "bg-muted-foreground"}`} />
+                      <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
+                      <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground uppercase">{t.category}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => startEditTemplate(t)}
+                        className="rounded-lg bg-secondary px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/80">
+                        Edit
+                      </button>
+                      <button onClick={() => toggleTemplate(t.id, t.active)}
+                        className={`rounded-lg px-3 py-1 text-xs font-medium ${
+                          t.active ? "bg-green-600/20 text-green-400 hover:bg-green-600/30" : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                        }`}>
+                        {t.active ? "Active" : "Inactive"}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{t.message_body}</p>
+                  {t.variables?.length > 0 && (
+                    <div className="mt-2 flex gap-1 flex-wrap">
+                      {t.variables.map((v: string) => (
+                        <span key={v} className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary font-mono">{`{{${v}}}`}</span>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}
