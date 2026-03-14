@@ -42,8 +42,10 @@ const statusColors: Record<string, string> = {
 };
 
 const parseMoneyInput = (value: string) => {
-  const normalized = value.replace(",", ".").trim();
-  return Number.parseFloat(normalized);
+  if (!value || typeof value !== "string") return 0;
+  const normalized = value.replace(/[^0-9.,\-]/g, "").replace(",", ".").trim();
+  const result = Number.parseFloat(normalized);
+  return Number.isNaN(result) ? 0 : result;
 };
 
 const getSafeStartDate = (startDate: string) => {
@@ -142,11 +144,11 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
 
   const handleCreate = async () => {
     const total = parseMoneyInput(totalAmount);
-    const dep = parseMoneyInput(deposit) || 0;
+    const dep = parseMoneyInput(deposit);
     const num = Math.min(12, Math.max(1, parseInt(numInstallments) || 1));
 
-    if (!total || Number.isNaN(total) || total <= 0) {
-      toast({ title: "Invalid total amount" });
+    if (total <= 0) {
+      toast({ title: "Invalid total amount", description: `Please enter a value greater than 0. Current: "${totalAmount}"` });
       return;
     }
 
@@ -305,7 +307,8 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
             <div>
               <label className="text-xs text-muted-foreground">Total Amount (£)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={totalAmount}
                 onChange={(e) => setTotalAmount(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -315,7 +318,8 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
             <div>
               <label className="text-xs text-muted-foreground">Deposit (£)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={deposit}
                 onChange={(e) => setDeposit(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -366,7 +370,8 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
                     <div>
                       <label className="text-xs text-muted-foreground">Installment {index + 1} Amount (£)</label>
                       <input
-                        type="number"
+                        type="text"
+                        inputMode="decimal"
                         value={draft.amount}
                         onChange={(e) => updateInstallmentDraft(index, "amount", e.target.value)}
                         className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
