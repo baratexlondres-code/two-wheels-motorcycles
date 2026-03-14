@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 declare const __APP_VERSION: string;
+declare const __APP_BUILD_ID: string;
 
 declare module "virtual:pwa-register/react" {
   export function useRegisterSW(options?: {
