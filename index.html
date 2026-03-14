@@ -34,34 +34,69 @@
       (function() {
         var APP_BUILD = "__APP_BUILD_ID__";
         var KEY = "tw_build_version";
+        var RELOAD_LOCK_KEY = "tw_build_reload_lock";
+
+        function toBuildNumber(value) {
+          var n = Number(value);
+          return Number.isFinite(n) ? n : null;
+        }
+
         try {
-          var stored = localStorage.getItem(KEY);
-          if (stored !== APP_BUILD) {
+          var incomingBuild = toBuildNumber(APP_BUILD);
+          var storedRaw = localStorage.getItem(KEY);
+
+          // First load on this device
+          if (storedRaw === null) {
             localStorage.setItem(KEY, APP_BUILD);
-            if ('caches' in window) {
-              caches.keys().then(function(names) {
-                return Promise.all(names.map(function(n) { return caches.delete(n); }));
-              }).then(function() {
-                if ('serviceWorker' in navigator) {
-                  navigator.serviceWorker.getRegistrations().then(function(regs) {
-                    regs.forEach(function(r) { r.unregister(); });
-                    window.location.reload();
-                  });
-                } else {
-                  window.location.reload();
-                }
-              });
-            } else if ('serviceWorker' in navigator) {
-              navigator.serviceWorker.getRegistrations().then(function(regs) {
-                regs.forEach(function(r) { r.unregister(); });
-                window.location.reload();
-              });
-            } else {
-              window.location.reload();
-            }
-            // Stop further execution while we reload
-            throw new Error("RELOAD");
+            return;
           }
+
+          var storedBuild = toBuildNumber(storedRaw);
+
+          // Fallback if build IDs are not numeric
+          if (incomingBuild === null || storedBuild === null) {
+            if (storedRaw !== APP_BUILD) {
+              localStorage.setItem(KEY, APP_BUILD);
+            }
+            return;
+          }
+
+          // Never downgrade to an older shell due to stale cache/CDN propagation
+          if (incomingBuild <= storedBuild) {
+            return;
+          }
+
+          // Newer build detected: force a one-time hard refresh
+          if (sessionStorage.getItem(RELOAD_LOCK_KEY) === APP_BUILD) {
+            return;
+          }
+
+          sessionStorage.setItem(RELOAD_LOCK_KEY, APP_BUILD);
+          localStorage.setItem(KEY, APP_BUILD);
+
+          if ('caches' in window) {
+            caches.keys().then(function(names) {
+              return Promise.all(names.map(function(n) { return caches.delete(n); }));
+            }).then(function() {
+              if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(regs) {
+                  regs.forEach(function(r) { r.unregister(); });
+                  window.location.reload();
+                });
+              } else {
+                window.location.reload();
+              }
+            });
+          } else if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+              regs.forEach(function(r) { r.unregister(); });
+              window.location.reload();
+            });
+          } else {
+            window.location.reload();
+          }
+
+          throw new Error("RELOAD");
         } catch(e) {
           if (e.message !== "RELOAD") console.warn("Update check:", e);
         }
