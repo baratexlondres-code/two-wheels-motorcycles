@@ -99,6 +99,27 @@ const WhatsAppPage = () => {
     loadData();
   };
 
+  const startEditTemplate = (t: any) => {
+    setEditingTemplate(t.id);
+    setEditForm({ name: t.name, category: t.category, message_body: t.message_body });
+  };
+
+  const saveTemplate = async (id: string) => {
+    await supabase.from("whatsapp_templates").update({
+      name: editForm.name,
+      category: editForm.category,
+      message_body: editForm.message_body,
+      updated_at: new Date().toISOString(),
+    }).eq("id", id);
+    setEditingTemplate(null);
+    toast({ title: "Template updated" });
+    loadData();
+  };
+
+  const cancelEdit = () => {
+    setEditingTemplate(null);
+  };
+
   const updateSetting = (key: string, value: string) => {
     setWaSettings(prev => ({ ...prev, [key]: value }));
   };
