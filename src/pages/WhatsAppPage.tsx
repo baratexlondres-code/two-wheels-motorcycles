@@ -21,6 +21,8 @@ const WhatsAppPage = () => {
   const [waSettings, setWaSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", category: "", message_body: "" });
 
   useEffect(() => {
     loadData();
