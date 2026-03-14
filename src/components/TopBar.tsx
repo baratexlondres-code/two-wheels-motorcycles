@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Wrench, Package, FileText, X } from "lucide-react";
+import { Bell, Wrench, Package, FileText, X, CreditCard } from "lucide-react";
 import { GlobalSearch } from "@/components/GlobalSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
@@ -90,6 +90,47 @@ export function TopBar() {
           link: "/invoices",
         });
       });
+
+      // Overdue installments
+      const today = new Date().toISOString().split("T")[0];
+      const { data: overdueInstallments } = await supabase
+        .from("installments")
+        .select("id, amount, due_date, plan_id")
+        .eq("status", "pending")
+        .lt("due_date", today)
+        .limit(10);
+
+      if (overdueInstallments && overdueInstallments.length > 0) {
+        // Get plan details to find customer names
+        const planIds = [...new Set(overdueInstallments.map(i => i.plan_id))];
+        const { data: plans } = await supabase
+          .from("installment_plans")
+          .select("id, customer_id")
+          .in("id", planIds);
+
+        const customerIds = [...new Set((plans || []).map(p => p.customer_id))];
+        const { data: customers } = await supabase
+          .from("customers")
+          .select("id, name")
+          .in("id", customerIds);
+
+        const customerMap = Object.fromEntries((customers || []).map(c => [c.id, c.name]));
+        const planCustomerMap = Object.fromEntries((plans || []).map(p => [p.id, p.customer_id]));
+
+        overdueInstallments.forEach(inst => {
+          const custId = planCustomerMap[inst.plan_id];
+          const custName = custId ? customerMap[custId] : "Unknown";
+          const daysOverdue = Math.floor((Date.now() - new Date(inst.due_date).getTime()) / 86400000);
+          notifs.push({
+            id: `overdue-${inst.id}`,
+            icon: <CreditCard className="h-4 w-4" />,
+            title: `⚠️ Overdue Payment`,
+            message: `${custName} — £${Number(inst.amount).toFixed(2)} due ${new Date(inst.due_date).toLocaleDateString("en-GB")} (${daysOverdue}d late)`,
+            type: "warning",
+            link: "/customers",
+          });
+        });
+      }
 
       setNotifications(notifs);
     };
