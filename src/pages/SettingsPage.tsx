@@ -208,6 +208,7 @@ const SettingsPage = () => {
         <div className="space-y-1 text-sm text-muted-foreground">
           <p>Two Wheels Motorcycles — Workshop Management System</p>
           <p>Version {__APP_VERSION}</p>
+          <p className="text-xs">Build {__APP_BUILD_ID}</p>
           <p className="text-xs mt-2">Private system for internal use only. All activity is logged.</p>
         </div>
       </motion.div>
