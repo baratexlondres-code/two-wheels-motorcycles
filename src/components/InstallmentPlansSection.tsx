@@ -24,6 +24,11 @@ interface Installment {
   paid_date: string | null;
 }
 
+interface InstallmentDraft {
+  amount: string;
+  dueDate: string;
+}
+
 interface Props {
   customerId: string;
   customerName: string;
@@ -34,6 +39,42 @@ const statusColors: Record<string, string> = {
   pending: "bg-yellow-500/20 text-yellow-400",
   paid: "bg-green-500/20 text-green-400",
   overdue: "bg-red-500/20 text-red-400",
+};
+
+const parseMoneyInput = (value: string) => {
+  const normalized = value.replace(",", ".").trim();
+  return Number.parseFloat(normalized);
+};
+
+const getSafeStartDate = (startDate: string) => {
+  const parsed = new Date(startDate);
+  if (!Number.isNaN(parsed.getTime())) return parsed;
+
+  const fallback = new Date();
+  fallback.setDate(fallback.getDate() + 7);
+  return fallback;
+};
+
+const buildDefaultInstallmentDrafts = (count: number, startDate: string, remaining: number): InstallmentDraft[] => {
+  if (count <= 0) return [];
+
+  const safeRemaining = Math.max(0, remaining);
+  const baseAmount = Math.floor((safeRemaining / count) * 100) / 100;
+  const baseDate = getSafeStartDate(startDate);
+
+  return Array.from({ length: count }, (_, index) => {
+    const dueDate = new Date(baseDate);
+    dueDate.setDate(dueDate.getDate() + index * 7);
+
+    const amount = index === count - 1
+      ? Math.round((safeRemaining - baseAmount * (count - 1)) * 100) / 100
+      : baseAmount;
+
+    return {
+      amount: amount.toFixed(2),
+      dueDate: dueDate.toISOString().split("T")[0],
+    };
+  });
 };
 
 export default function InstallmentPlansSection({ customerId, customerName, customerPhone }: Props) {
@@ -53,6 +94,7 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
     return d.toISOString().split("T")[0];
   });
   const [invoiceNumber, setInvoiceNumber] = useState("");
+  const [installmentDrafts, setInstallmentDrafts] = useState<InstallmentDraft[]>([]);
 
   const fetchPlans = async () => {
     setLoading(true);
@@ -81,17 +123,68 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
     setLoading(false);
   };
 
-  useEffect(() => { fetchPlans(); }, [customerId]);
+  useEffect(() => {
+    fetchPlans();
+  }, [customerId]);
+
+  useEffect(() => {
+    const num = Math.min(12, Math.max(1, parseInt(numInstallments) || 1));
+    const total = parseMoneyInput(totalAmount) || 0;
+    const dep = parseMoneyInput(deposit) || 0;
+    const remaining = total - dep;
+
+    setInstallmentDrafts(buildDefaultInstallmentDrafts(num, startDate, remaining));
+  }, [numInstallments, startDate, totalAmount, deposit]);
+
+  const updateInstallmentDraft = (index: number, field: keyof InstallmentDraft, value: string) => {
+    setInstallmentDrafts((prev) => prev.map((draft, i) => (i === index ? { ...draft, [field]: value } : draft)));
+  };
 
   const handleCreate = async () => {
-    const total = parseFloat(totalAmount);
-    const dep = parseFloat(deposit) || 0;
-    const num = parseInt(numInstallments) || 2;
-    if (!total || total <= 0) { toast({ title: "Invalid total amount" }); return; }
-    if (dep >= total) { toast({ title: "Deposit must be less than total" }); return; }
+    const total = parseMoneyInput(totalAmount);
+    const dep = parseMoneyInput(deposit) || 0;
+    const num = Math.min(12, Math.max(1, parseInt(numInstallments) || 1));
+
+    if (!total || Number.isNaN(total) || total <= 0) {
+      toast({ title: "Invalid total amount" });
+      return;
+    }
+
+    if (dep >= total) {
+      toast({ title: "Deposit must be less than total" });
+      return;
+    }
+
+    if (installmentDrafts.length !== num) {
+      toast({ title: "Please review installment breakdown" });
+      return;
+    }
 
     const remaining = total - dep;
-    const instAmount = Math.round((remaining / num) * 100) / 100;
+
+    const parsedInstallments = installmentDrafts.map((draft, index) => ({
+      index,
+      amount: parseMoneyInput(draft.amount),
+      due_date: draft.dueDate,
+    }));
+
+    const hasInvalidInstallment = parsedInstallments.some(
+      (row) => !row.amount || Number.isNaN(row.amount) || row.amount <= 0 || !row.due_date,
+    );
+
+    if (hasInvalidInstallment) {
+      toast({ title: "Each installment needs a valid amount and due date" });
+      return;
+    }
+
+    const scheduleTotal = parsedInstallments.reduce((sum, row) => sum + row.amount, 0);
+    if (Math.abs(scheduleTotal - remaining) > 0.01) {
+      toast({
+        title: "Installments must match remaining balance",
+        description: `Remaining £${remaining.toFixed(2)} vs installments £${scheduleTotal.toFixed(2)}`,
+      });
+      return;
+    }
 
     // Create plan
     const { data: plan, error } = await supabase
@@ -107,24 +200,25 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
       .select()
       .single();
 
-    if (error || !plan) { toast({ title: "Error creating plan", description: error?.message }); return; }
-
-    // Create installments
-    const installmentRows = [];
-    const start = new Date(startDate);
-    for (let i = 0; i < num; i++) {
-      const dueDate = new Date(start);
-      dueDate.setDate(dueDate.getDate() + i * 7);
-      const amt = i === num - 1 ? Math.round((remaining - instAmount * (num - 1)) * 100) / 100 : instAmount;
-      installmentRows.push({
-        plan_id: plan.id,
-        amount: amt,
-        due_date: dueDate.toISOString().split("T")[0],
-        status: "pending",
-      });
+    if (error || !plan) {
+      toast({ title: "Error creating plan", description: error?.message });
+      return;
     }
 
-    await supabase.from("installments").insert(installmentRows);
+    // Create installments
+    const installmentRows = parsedInstallments.map((row) => ({
+      plan_id: plan.id,
+      amount: Math.round(row.amount * 100) / 100,
+      due_date: row.due_date,
+      status: "pending",
+    }));
+
+    const { error: installmentsError } = await supabase.from("installments").insert(installmentRows);
+
+    if (installmentsError) {
+      toast({ title: "Error creating installments", description: installmentsError.message });
+      return;
+    }
 
     toast({ title: "Installment plan created" });
     setShowCreate(false);
@@ -142,7 +236,7 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
       .eq("id", installment.id);
 
     const newBalance = Math.max(0, plan.remaining_balance - installment.amount);
-    const updateData: any = { remaining_balance: newBalance };
+    const updateData: { remaining_balance: number; status?: string } = { remaining_balance: newBalance };
     if (newBalance <= 0) updateData.status = "completed";
 
     await supabase.from("installment_plans").update(updateData).eq("id", plan.id);
@@ -184,6 +278,12 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
 
   if (loading) return null;
 
+  const totalPreview = parseMoneyInput(totalAmount) || 0;
+  const depositPreview = parseMoneyInput(deposit) || 0;
+  const remainingPreview = Math.max(0, totalPreview - depositPreview);
+  const schedulePreviewTotal = installmentDrafts.reduce((sum, row) => sum + (parseMoneyInput(row.amount) || 0), 0);
+  const hasScheduleMismatch = Math.abs(schedulePreviewTotal - remainingPreview) > 0.01;
+
   return (
     <div className="rounded-xl border border-border bg-card overflow-hidden">
       <div className="border-b border-border p-4 flex items-center justify-between">
@@ -201,43 +301,100 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
       {/* Create Form */}
       {showCreate && (
         <div className="border-b border-border p-4 space-y-3 bg-secondary/30">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="text-xs text-muted-foreground">Total Amount (£)</label>
-              <input type="number" value={totalAmount} onChange={(e) => setTotalAmount(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="250.00" />
+              <input
+                type="number"
+                value={totalAmount}
+                onChange={(e) => setTotalAmount(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="250.00"
+              />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Deposit (£)</label>
-              <input type="number" value={deposit} onChange={(e) => setDeposit(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="100.00" />
+              <input
+                type="number"
+                value={deposit}
+                onChange={(e) => setDeposit(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="100.00"
+              />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">Number of Installments</label>
-              <input type="number" value={numInstallments} onChange={(e) => setNumInstallments(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" min="1" max="12" />
+              <input
+                type="number"
+                value={numInstallments}
+                onChange={(e) => setNumInstallments(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                min="1"
+                max="12"
+              />
             </div>
             <div>
               <label className="text-xs text-muted-foreground">First Payment Date</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
             </div>
-            <div className="col-span-2">
+            <div className="md:col-span-2">
               <label className="text-xs text-muted-foreground">Invoice Number (optional)</label>
-              <input type="text" value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" placeholder="INV-00001" />
+              <input
+                type="text"
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                placeholder="INV-00001"
+              />
             </div>
           </div>
 
-          {totalAmount && parseFloat(totalAmount) > 0 && (
-            <div className="rounded-lg bg-card border border-border p-3 text-sm space-y-1">
-              <p className="text-muted-foreground">Preview:</p>
-              <p className="text-foreground">Total: <strong>£{parseFloat(totalAmount).toFixed(2)}</strong></p>
-              <p className="text-foreground">Deposit: <strong>£{(parseFloat(deposit) || 0).toFixed(2)}</strong></p>
-              <p className="text-foreground">
-                Remaining: <strong>£{(parseFloat(totalAmount) - (parseFloat(deposit) || 0)).toFixed(2)}</strong>
-                {" "}in {numInstallments} payments of ~£{((parseFloat(totalAmount) - (parseFloat(deposit) || 0)) / (parseInt(numInstallments) || 1)).toFixed(2)}
-              </p>
+          {totalPreview > 0 && (
+            <div className="space-y-3 rounded-lg border border-border bg-card p-3 text-sm">
+              <div>
+                <p className="text-muted-foreground">Set each installment amount and date:</p>
+              </div>
+
+              <div className="space-y-2">
+                {installmentDrafts.map((draft, index) => (
+                  <div key={`installment-draft-${index}`} className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">Installment {index + 1} Amount (£)</label>
+                      <input
+                        type="number"
+                        value={draft.amount}
+                        onChange={(e) => updateInstallmentDraft(index, "amount", e.target.value)}
+                        className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">Installment {index + 1} Due Date</label>
+                      <input
+                        type="date"
+                        value={draft.dueDate}
+                        onChange={(e) => updateInstallmentDraft(index, "dueDate", e.target.value)}
+                        className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="space-y-1 rounded-lg border border-border bg-secondary/30 p-3">
+                <p className="text-foreground">Total: <strong>£{totalPreview.toFixed(2)}</strong></p>
+                <p className="text-foreground">Deposit: <strong>£{depositPreview.toFixed(2)}</strong></p>
+                <p className="text-foreground">Remaining: <strong>£{remainingPreview.toFixed(2)}</strong></p>
+                <p className="text-foreground">Installments sum: <strong>£{schedulePreviewTotal.toFixed(2)}</strong></p>
+                {hasScheduleMismatch && (
+                  <p className="text-xs text-destructive">Installments must equal the remaining balance.</p>
+                )}
+              </div>
             </div>
           )}
 
@@ -274,8 +431,8 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
                     </p>
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                       plan.status === "completed" ? "bg-green-500/20 text-green-400" :
-                      plan.status === "active" ? "bg-blue-500/20 text-blue-400" :
-                      "bg-muted text-muted-foreground"
+                        plan.status === "active" ? "bg-blue-500/20 text-blue-400" :
+                          "bg-muted text-muted-foreground"
                     }`}>
                       {plan.status}
                     </span>
@@ -309,12 +466,16 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
                         </span>
                         {inst.status !== "paid" && (
                           <>
-                            <button onClick={() => markAsPaid(inst, plan)}
-                              className="flex items-center gap-1 rounded-md bg-green-600/20 px-2 py-1 text-xs text-green-400 hover:bg-green-600/30">
+                            <button
+                              onClick={() => markAsPaid(inst, plan)}
+                              className="flex items-center gap-1 rounded-md bg-green-600/20 px-2 py-1 text-xs text-green-400 hover:bg-green-600/30"
+                            >
                               <Check className="h-3 w-3" /> Paid
                             </button>
-                            <button onClick={() => sendReminder(inst)}
-                              className="flex items-center gap-1 rounded-md bg-primary/20 px-2 py-1 text-xs text-primary hover:bg-primary/30">
+                            <button
+                              onClick={() => sendReminder(inst)}
+                              className="flex items-center gap-1 rounded-md bg-primary/20 px-2 py-1 text-xs text-primary hover:bg-primary/30"
+                            >
                               <Bell className="h-3 w-3" /> Remind
                             </button>
                           </>
