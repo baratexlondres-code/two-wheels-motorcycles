@@ -144,11 +144,11 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
 
   const handleCreate = async () => {
     const total = parseMoneyInput(totalAmount);
-    const dep = parseMoneyInput(deposit) || 0;
+    const dep = parseMoneyInput(deposit);
     const num = Math.min(12, Math.max(1, parseInt(numInstallments) || 1));
 
-    if (!total || Number.isNaN(total) || total <= 0) {
-      toast({ title: "Invalid total amount" });
+    if (total <= 0) {
+      toast({ title: "Invalid total amount", description: `Please enter a value greater than 0. Current: "${totalAmount}"` });
       return;
     }
 
