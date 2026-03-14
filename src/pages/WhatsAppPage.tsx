@@ -348,16 +348,16 @@ const WhatsAppPage = () => {
               ) : (
                 /* View Mode */
                 <>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
+                  <div className="mb-2 space-y-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <span className={`h-2 w-2 rounded-full ${t.active ? "bg-green-500" : "bg-muted-foreground"}`} />
                       <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
                       <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground uppercase">{t.category}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <button onClick={() => startEditTemplate(t)}
-                        className="rounded-lg bg-secondary px-3 py-1 text-xs font-medium text-foreground hover:bg-secondary/80">
-                        Edit
+                        className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:brightness-110">
+                        Edit Template
                       </button>
                       <button onClick={() => toggleTemplate(t.id, t.active)}
                         className={`rounded-lg px-3 py-1 text-xs font-medium ${
