@@ -116,6 +116,13 @@ const WhatsAppPage = () => {
     loadData();
   };
 
+  const deleteCampaign = async (id: string, name: string) => {
+    if (!confirm(`Are you sure you want to delete campaign "${name}"?`)) return;
+    await supabase.from("whatsapp_campaigns").delete().eq("id", id);
+    toast({ title: "Campaign deleted" });
+    loadData();
+  };
+
   const cancelEdit = () => {
     setEditingTemplate(null);
   };
