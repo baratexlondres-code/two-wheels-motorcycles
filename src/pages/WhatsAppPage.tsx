@@ -384,11 +384,18 @@ const WhatsAppPage = () => {
                     {c.campaign_type} · {format(new Date(c.created_at), "dd/MM/yyyy HH:mm")}
                   </p>
                 </div>
-                <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  c.status === "sent" ? "bg-green-600/20 text-green-400" :
-                  c.status === "sending" ? "bg-yellow-600/20 text-yellow-400" :
-                  "bg-secondary text-muted-foreground"
-                }`}>{c.status}</span>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                    c.status === "sent" ? "bg-green-600/20 text-green-400" :
+                    c.status === "sending" ? "bg-yellow-600/20 text-yellow-400" :
+                    "bg-secondary text-muted-foreground"
+                  }`}>{c.status}</span>
+                  <button onClick={() => deleteCampaign(c.id, c.name)}
+                    className="rounded-lg p-1.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                    title="Delete campaign">
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
               {c.total_recipients != null && (
                 <div className="mt-2 flex gap-4 text-xs text-muted-foreground">
