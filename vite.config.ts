@@ -28,7 +28,7 @@ export default defineConfig(({ mode }) => {
       mode === "development" && componentTagger(),
       {
         name: "inject-app-build-id",
-        transformIndexHtml(html) {
+        transformIndexHtml(html: string) {
           return html.replace(/__APP_BUILD_ID__/g, appBuildId);
         },
       },
