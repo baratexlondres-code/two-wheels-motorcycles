@@ -100,6 +100,86 @@ serve(async (req) => {
       });
     }
 
+    // ACTION: Run installment checks (mark overdue + send reminders)
+    if (action === "run_installment_check") {
+      const today = new Date().toISOString().split("T")[0];
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      const tomorrowStr = tomorrow.toISOString().split("T")[0];
+
+      let overdueCount = 0;
+      let reminderCount = 0;
+
+      // Mark overdue: pending installments with due_date < today
+      const { data: overdueInstallments } = await supabase
+        .from("installments")
+        .select("id, amount, plan_id, due_date")
+        .eq("status", "pending")
+        .lt("due_date", today);
+
+      for (const inst of (overdueInstallments || [])) {
+        await supabase.from("installments").update({ status: "overdue" }).eq("id", inst.id);
+        overdueCount++;
+
+        // Get customer info for notification
+        const { data: plan } = await supabase.from("installment_plans").select("customer_id").eq("id", inst.plan_id).single();
+        if (!plan) continue;
+        const { data: customer } = await supabase.from("customers").select("id, name, phone").eq("id", plan.customer_id).single();
+        if (!customer) continue;
+
+        const message = `Hello ${customer.name} 👋\n\nYou have an overdue payment of £${inst.amount.toFixed(2)}.\n\nPlease contact Two Wheels Motorcycles.`;
+
+        // Log notification
+        await supabase.from("notifications").insert({
+          customer_id: customer.id,
+          type: "overdue_payment",
+          message,
+          status: customer.phone ? "sent" : "pending",
+          sent_date: customer.phone ? new Date().toISOString() : null,
+          reference_id: inst.id,
+        });
+
+        // Send WhatsApp if phone available
+        if (customer.phone) {
+          await sendMessage(customer.id, customer.phone, message, "overdue_payment");
+        }
+      }
+
+      // Send reminders: pending installments due tomorrow
+      const { data: dueTomorrow } = await supabase
+        .from("installments")
+        .select("id, amount, plan_id, due_date")
+        .eq("status", "pending")
+        .eq("due_date", tomorrowStr);
+
+      for (const inst of (dueTomorrow || [])) {
+        const { data: plan } = await supabase.from("installment_plans").select("customer_id").eq("id", inst.plan_id).single();
+        if (!plan) continue;
+        const { data: customer } = await supabase.from("customers").select("id, name, phone").eq("id", plan.customer_id).single();
+        if (!customer) continue;
+
+        const message = `Hello ${customer.name} 👋\n\nReminder from Two Wheels Motorcycles.\nYour installment payment of £${inst.amount.toFixed(2)} is due tomorrow.\n\nThank you.`;
+
+        await supabase.from("notifications").insert({
+          customer_id: customer.id,
+          type: "installment_reminder",
+          message,
+          status: customer.phone ? "sent" : "pending",
+          sent_date: customer.phone ? new Date().toISOString() : null,
+          reference_id: inst.id,
+        });
+
+        if (customer.phone) {
+          await sendMessage(customer.id, customer.phone, message, "installment_reminder");
+        }
+        reminderCount++;
+      }
+
+      return new Response(JSON.stringify({ success: true, overdue_marked: overdueCount, reminders_sent: reminderCount }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     // ACTION: Run all automated triggers
     if (action === "run_triggers") {
       const results: Record<string, number> = { mot_30: 0, mot_7: 0, oil_change: 0, inactive_6m: 0, inactive_12m: 0 };
@@ -162,7 +242,7 @@ serve(async (req) => {
             }
           }
 
-          // Oil change (6 months since last service)
+          // Service reminder (6 months since last service)
           if (bike.last_service_date) {
             const lastService = new Date(bike.last_service_date);
             if (lastService <= sixMonthsAgo) {
