@@ -42,8 +42,10 @@ const statusColors: Record<string, string> = {
 };
 
 const parseMoneyInput = (value: string) => {
-  const normalized = value.replace(",", ".").trim();
-  return Number.parseFloat(normalized);
+  if (!value || typeof value !== "string") return 0;
+  const normalized = value.replace(/[^0-9.,\-]/g, "").replace(",", ".").trim();
+  const result = Number.parseFloat(normalized);
+  return Number.isNaN(result) ? 0 : result;
 };
 
 const getSafeStartDate = (startDate: string) => {
