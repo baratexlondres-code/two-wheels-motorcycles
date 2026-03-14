@@ -72,7 +72,20 @@ export function OutstandingInstallmentsWidget() {
   const dueTomorrow = items.filter((i) => i.due_date === tomorrowStr && i.status !== "overdue");
   const dueThisWeek = items.filter((i) => i.due_date > tomorrowStr && i.status !== "overdue");
 
-  if (loading || items.length === 0) return null;
+  if (loading) return null;
+
+  if (items.length === 0) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}
+        className="rounded-xl border border-border bg-card p-5">
+        <div className="mb-2 flex items-center gap-2">
+          <CreditCard className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold text-foreground">Outstanding Installments</h2>
+        </div>
+        <p className="text-sm text-muted-foreground text-center py-4">No installment payments due this week</p>
+      </motion.div>
+    );
+  }
 
   const Section = ({ title, rows, color }: { title: string; rows: InstallmentRow[]; color: string }) => {
     if (rows.length === 0) return null;
@@ -176,7 +189,18 @@ export function CustomerDebtWidget() {
     fetch();
   }, []);
 
-  if (debtors.length === 0) return null;
+  if (debtors.length === 0) {
+    return (
+      <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+        className="rounded-xl border border-border bg-card p-5">
+        <div className="mb-2 flex items-center gap-2">
+          <Users className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-lg font-semibold text-foreground">Outstanding Payments</h2>
+        </div>
+        <p className="text-sm text-muted-foreground text-center py-4">No customers with outstanding payments</p>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
