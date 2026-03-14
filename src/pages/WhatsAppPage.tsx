@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   MessageSquare, Send, Zap, Users, BarChart3, Clock,
   Play, Settings, RefreshCw, ChevronDown, ChevronRight,
-  CheckCircle2, XCircle, AlertCircle, Loader2
+  CheckCircle2, XCircle, AlertCircle, Loader2, Trash2
 } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
