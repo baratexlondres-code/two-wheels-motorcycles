@@ -318,7 +318,8 @@ export default function InstallmentPlansSection({ customerId, customerName, cust
             <div>
               <label className="text-xs text-muted-foreground">Deposit (£)</label>
               <input
-                type="number"
+                type="text"
+                inputMode="decimal"
                 value={deposit}
                 onChange={(e) => setDeposit(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
