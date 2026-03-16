@@ -10,9 +10,9 @@ const corsHeaders = {
 function formatUKNumber(phone: string | null): string | null {
   if (!phone) return null;
   phone = phone.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
-  if (phone.startsWith("07")) return "44" + phone.slice(1);
-  if (phone.startsWith("+44")) return phone.slice(1);
-  if (phone.startsWith("+")) return phone.slice(1);
+  if (phone.startsWith("+")) phone = phone.slice(1);
+  if (phone.startsWith("0")) return "44" + phone.substring(1);
+  if (phone.startsWith("44")) return phone;
   return phone;
 }
 
