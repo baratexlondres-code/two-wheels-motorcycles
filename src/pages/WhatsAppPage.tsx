@@ -3,14 +3,23 @@ import { motion } from "framer-motion";
 import {
   MessageSquare, Send, Zap, Users, BarChart3, Clock,
   Play, Settings, RefreshCw, ChevronDown, ChevronRight,
-  CheckCircle2, XCircle, AlertCircle, Loader2, Trash2
+  CheckCircle2, XCircle, AlertCircle, Loader2, Trash2, Search
 } from "lucide-react";
 import BackButton from "@/components/BackButton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 
-type Tab = "dashboard" | "messages" | "templates" | "campaigns" | "settings";
+type Tab = "dashboard" | "messages" | "templates" | "campaigns" | "send" | "settings";
+
+function formatUKNumber(phone: string | null): string | null {
+  if (!phone) return null;
+  phone = phone.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
+  if (phone.startsWith("07")) return "44" + phone.slice(1);
+  if (phone.startsWith("+44")) return phone.slice(1);
+  if (phone.startsWith("+")) return phone.slice(1);
+  return phone;
+}
 
 const WhatsAppPage = () => {
   const [tab, setTab] = useState<Tab>("dashboard");
@@ -24,26 +33,34 @@ const WhatsAppPage = () => {
   const [editingTemplate, setEditingTemplate] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ name: "", category: "", message_body: "" });
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  // Send Campaign state
+  const [allCustomers, setAllCustomers] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [campaignMsg, setCampaignMsg] = useState("");
+  const [campaignName, setCampaignName] = useState("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sendResults, setSendResults] = useState<{ sent: number; failed: number; total: number } | null>(null);
+
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     setLoading(true);
-    const [msgRes, tplRes, campRes, settRes] = await Promise.all([
+    const [msgRes, tplRes, campRes, settRes, custRes] = await Promise.all([
       supabase.from("whatsapp_messages").select("*, customers(name)").order("created_at", { ascending: false }).limit(50),
       supabase.from("whatsapp_templates").select("*").order("name"),
       supabase.from("whatsapp_campaigns").select("*").order("created_at", { ascending: false }),
       supabase.from("whatsapp_settings").select("*"),
+      supabase.from("customers").select("id, name, phone").order("name"),
     ]);
     setMessages(msgRes.data || []);
     setTemplates(tplRes.data || []);
     setCampaigns(campRes.data || []);
+    setAllCustomers(custRes.data || []);
     const sMap: Record<string, string> = {};
     settRes.data?.forEach((r: any) => { sMap[r.key] = r.value; });
     setWaSettings(sMap);
 
-    // Compute stats from messages
     const last30 = (msgRes.data || []).filter((m: any) => {
       const d = new Date(m.created_at);
       return d > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
@@ -75,13 +92,11 @@ const WhatsAppPage = () => {
   const runPromotion = async () => {
     setRunning(true);
     try {
-      // Create campaign
       const { data: camp } = await supabase.from("whatsapp_campaigns").insert({
         name: `Weekly Promo - ${format(new Date(), "dd/MM/yyyy")}`,
         campaign_type: "weekly_promotion",
         status: "sending",
       }).select().single();
-
       const { data, error } = await supabase.functions.invoke("whatsapp-automation", {
         body: { action: "run_promotion", campaign_id: camp?.id },
       });
@@ -108,24 +123,14 @@ const WhatsAppPage = () => {
     const name = editForm.name.trim();
     const category = editForm.category.trim();
     const messageBody = editForm.message_body.trim();
-
     if (!name || !category || !messageBody) {
       toast({ title: "Error", description: "Please fill all template fields", variant: "destructive" });
       return;
     }
-
     const { error } = await supabase.from("whatsapp_templates").update({
-      name,
-      category,
-      message_body: messageBody,
-      updated_at: new Date().toISOString(),
+      name, category, message_body: messageBody, updated_at: new Date().toISOString(),
     }).eq("id", id);
-
-    if (error) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
-      return;
-    }
-
+    if (error) { toast({ title: "Error", description: error.message, variant: "destructive" }); return; }
     setEditingTemplate(null);
     toast({ title: "Template updated" });
     loadData();
@@ -138,9 +143,7 @@ const WhatsAppPage = () => {
     loadData();
   };
 
-  const cancelEdit = () => {
-    setEditingTemplate(null);
-  };
+  const cancelEdit = () => setEditingTemplate(null);
 
   const updateSetting = (key: string, value: string) => {
     setWaSettings(prev => ({ ...prev, [key]: value }));
@@ -164,11 +167,69 @@ const WhatsAppPage = () => {
     }
   };
 
+  // ─── Send Campaign logic ─────────────────────────────────
+  const toggleCustomer = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const selectAll = () => {
+    const filtered = filteredCustomers;
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(c => c.id)));
+    }
+  };
+
+  const filteredCustomers = allCustomers.filter(c => {
+    if (!customerSearch) return true;
+    const q = customerSearch.toLowerCase();
+    return c.name?.toLowerCase().includes(q) || c.phone?.toLowerCase().includes(q);
+  });
+
+  const sendCampaign = async () => {
+    if (selectedIds.size === 0) { toast({ title: "No customers selected", variant: "destructive" }); return; }
+    if (!campaignMsg.trim()) { toast({ title: "Please write a message", variant: "destructive" }); return; }
+
+    setSending(true);
+    setSendResults(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("whatsapp-send", {
+        body: {
+          action: "send_campaign",
+          customer_ids: Array.from(selectedIds),
+          message_text: campaignMsg,
+          campaign_name: campaignName || undefined,
+        },
+      });
+      if (error) throw error;
+      setSendResults({ sent: data.sent, failed: data.failed, total: data.total });
+      toast({ title: "Campaign sent!", description: `${data.sent} sent, ${data.failed} failed out of ${data.total}` });
+      setSelectedIds(new Set());
+      setCampaignMsg("");
+      setCampaignName("");
+      loadData();
+    } catch (e: any) {
+      toast({ title: "Error sending campaign", description: e.message, variant: "destructive" });
+    }
+    setSending(false);
+  };
+
+  const useTemplate = (body: string) => {
+    setCampaignMsg(body);
+    toast({ title: "Template loaded into message" });
+  };
+
   const tabs: { id: Tab; label: string; icon: any }[] = [
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
+    { id: "send", label: "Send Campaign", icon: Send },
     { id: "messages", label: "Messages", icon: MessageSquare },
     { id: "templates", label: "Templates", icon: Settings },
-    { id: "campaigns", label: "Campaigns", icon: Send },
+    { id: "campaigns", label: "History", icon: Clock },
     { id: "settings", label: "Settings", icon: Zap },
   ];
 
@@ -179,7 +240,7 @@ const WhatsAppPage = () => {
   return (
     <div className="space-y-6 p-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-2">
           <BackButton />
           <div>
@@ -198,16 +259,16 @@ const WhatsAppPage = () => {
           <button onClick={runPromotion} disabled={running}
             className="flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:bg-green-700 disabled:opacity-50">
             {running ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-            Send Promotion
+            Auto Promo
           </button>
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-lg bg-secondary/50 p-1">
+      <div className="flex gap-1 rounded-lg bg-secondary/50 p-1 overflow-x-auto">
         {tabs.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors whitespace-nowrap ${
               tab === t.id ? "bg-card text-foreground shadow" : "text-muted-foreground hover:text-foreground"
             }`}>
             <t.icon className="h-4 w-4" /> {t.label}
@@ -231,8 +292,6 @@ const WhatsAppPage = () => {
               </div>
             ))}
           </div>
-
-          {/* Recent messages preview */}
           <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3">Recent Messages</h3>
             <div className="space-y-2 max-h-[300px] overflow-y-auto">
@@ -251,6 +310,113 @@ const WhatsAppPage = () => {
               {messages.length === 0 && <p className="text-sm text-muted-foreground">No messages yet</p>}
             </div>
           </div>
+        </motion.div>
+      )}
+
+      {/* ═══════ SEND CAMPAIGN TAB ═══════ */}
+      {tab === "send" && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+          {/* Message Composer */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">Compose Message</h3>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Campaign Name (optional)</label>
+              <input type="text" value={campaignName} onChange={e => setCampaignName(e.target.value)}
+                placeholder="e.g. Spring Promotion 2026"
+                className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none" />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground uppercase">Message</label>
+              <textarea value={campaignMsg} onChange={e => setCampaignMsg(e.target.value)}
+                rows={5} placeholder="Hi {{FirstName}}, we have a special offer for you..."
+                className="mt-1 w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none resize-y" />
+              <p className="text-[10px] text-muted-foreground mt-1">Variables: {"{{FirstName}}"}, {"{{FullName}}"}</p>
+            </div>
+
+            {/* Quick templates */}
+            {templates.filter(t => t.active).length > 0 && (
+              <div>
+                <label className="text-xs font-semibold text-muted-foreground uppercase">Use Template</label>
+                <div className="flex gap-2 flex-wrap mt-1">
+                  {templates.filter(t => t.active).map(t => (
+                    <button key={t.id} onClick={() => useTemplate(t.message_body)}
+                      className="rounded-lg border border-border bg-secondary/50 px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary transition-colors">
+                      {t.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Customer Selection */}
+          <div className="rounded-xl border border-border bg-card p-5 space-y-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-sm font-semibold text-foreground">
+                Select Customers ({selectedIds.size} of {filteredCustomers.length})
+              </h3>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input type="text" value={customerSearch} onChange={e => setCustomerSearch(e.target.value)}
+                    placeholder="Search..."
+                    className="rounded-lg border border-border bg-secondary pl-8 pr-3 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none w-40" />
+                </div>
+                <button onClick={selectAll}
+                  className="rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-foreground hover:bg-secondary/80">
+                  {selectedIds.size === filteredCustomers.length ? "Deselect All" : "Select All"}
+                </button>
+              </div>
+            </div>
+
+            <div className="max-h-[350px] overflow-y-auto rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead className="sticky top-0 bg-secondary/80 backdrop-blur">
+                  <tr className="border-b border-border">
+                    <th className="px-3 py-2 text-left w-10"></th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Customer</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Phone</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold text-muted-foreground uppercase">Formatted</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredCustomers.map(c => (
+                    <tr key={c.id} onClick={() => toggleCustomer(c.id)}
+                      className={`border-b border-border/50 cursor-pointer transition-colors ${selectedIds.has(c.id) ? "bg-primary/10" : "hover:bg-secondary/30"}`}>
+                      <td className="px-3 py-2">
+                        <input type="checkbox" checked={selectedIds.has(c.id)} readOnly
+                          className="h-4 w-4 rounded border-border accent-primary" />
+                      </td>
+                      <td className="px-3 py-2 text-foreground">{c.name}</td>
+                      <td className="px-3 py-2 text-muted-foreground font-mono text-xs">{c.phone || "—"}</td>
+                      <td className="px-3 py-2 text-muted-foreground font-mono text-xs">
+                        {c.phone ? formatUKNumber(c.phone) : <span className="text-destructive">No phone</span>}
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredCustomers.length === 0 && (
+                    <tr><td colSpan={4} className="px-3 py-8 text-center text-muted-foreground">No customers found</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Send Result */}
+          {sendResults && (
+            <div className="rounded-xl border border-green-500/30 bg-green-500/5 p-4">
+              <p className="text-sm font-semibold text-foreground">
+                Campaign Sent: {sendResults.sent} delivered, {sendResults.failed} failed out of {sendResults.total}
+              </p>
+            </div>
+          )}
+
+          {/* Send Button */}
+          <button onClick={sendCampaign} disabled={sending || selectedIds.size === 0 || !campaignMsg.trim()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-3 text-sm font-bold text-primary-foreground hover:bg-green-700 disabled:opacity-50 transition-colors">
+            {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+            {sending ? "Sending..." : `Send Campaign to ${selectedIds.size} Customer${selectedIds.size !== 1 ? "s" : ""}`}
+          </button>
         </motion.div>
       )}
 
@@ -297,7 +463,6 @@ const WhatsAppPage = () => {
           {templates.map((t: any) => (
             <div key={t.id} className="rounded-xl border border-border bg-card p-4">
               {editingTemplate === t.id ? (
-                /* Edit Mode */
                 <div className="space-y-3">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
@@ -336,17 +501,12 @@ const WhatsAppPage = () => {
                   </div>
                   <div className="flex gap-2 justify-end">
                     <button onClick={cancelEdit}
-                      className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary/80">
-                      Cancel
-                    </button>
+                      className="rounded-lg bg-secondary px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-secondary/80">Cancel</button>
                     <button onClick={() => saveTemplate(t.id)}
-                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:brightness-110">
-                      Save
-                    </button>
+                      className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:brightness-110">Save</button>
                   </div>
                 </div>
               ) : (
-                /* View Mode */
                 <>
                   <div className="mb-2 space-y-2">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -356,15 +516,11 @@ const WhatsAppPage = () => {
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       <button onClick={() => startEditTemplate(t)}
-                        className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:brightness-110">
-                        Edit Template
-                      </button>
+                        className="rounded-lg bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:brightness-110">Edit Template</button>
                       <button onClick={() => toggleTemplate(t.id, t.active)}
                         className={`rounded-lg px-3 py-1 text-xs font-medium ${
                           t.active ? "bg-green-600/20 text-green-400 hover:bg-green-600/30" : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                        }`}>
-                        {t.active ? "Active" : "Inactive"}
-                      </button>
+                        }`}>{t.active ? "Active" : "Inactive"}</button>
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground whitespace-pre-line leading-relaxed">{t.message_body}</p>
@@ -382,12 +538,12 @@ const WhatsAppPage = () => {
         </motion.div>
       )}
 
-      {/* Campaigns Tab */}
+      {/* Campaigns History Tab */}
       {tab === "campaigns" && (
         <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
           {campaigns.length === 0 && (
             <div className="rounded-xl border border-border bg-card p-8 text-center text-muted-foreground">
-              No campaigns yet. Click "Send Promotion" to create one.
+              No campaigns yet. Go to "Send Campaign" to create one.
             </div>
           )}
           {campaigns.map((c: any) => (
@@ -451,7 +607,6 @@ const WhatsAppPage = () => {
               </div>
             </div>
           </div>
-
           <div className="rounded-xl border border-border bg-card p-5 space-y-4">
             <h3 className="text-sm font-semibold text-foreground">WhatsApp Cloud API</h3>
             <p className="text-xs text-muted-foreground">
@@ -464,7 +619,6 @@ const WhatsAppPage = () => {
               </span>
             </div>
           </div>
-
           <button onClick={saveSettings}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground hover:brightness-110">
             Save Settings
