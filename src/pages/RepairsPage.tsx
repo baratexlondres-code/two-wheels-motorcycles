@@ -109,7 +109,7 @@ const RepairsPage = () => {
   };
   const [customerSearch, setCustomerSearch] = useState("");
   const [showNewCustomer, setShowNewCustomer] = useState(false);
-  const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "", email: "", address: "", notes: "" });
+  const [newCustomerForm, setNewCustomerForm] = useState({ name: "", phone: "44", email: "", address: "", notes: "" });
 
   const fetchData = async () => {
     setLoading(true);
