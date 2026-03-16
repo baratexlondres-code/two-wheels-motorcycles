@@ -30,7 +30,7 @@ interface Motorcycle {
   notes: string | null;
 }
 
-const emptyCustomer = { name: "", phone: "", email: "", address: "", notes: "" };
+const emptyCustomer = { name: "", phone: "44", email: "", address: "", notes: "" };
 const emptyVehicle = { registration: "", make: "", model: "", color: "" };
 
 const CustomersPage = () => {
