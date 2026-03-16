@@ -213,7 +213,7 @@ const RepairsPage = () => {
     setCustomers((prev) => [...prev, data as CustomerFull].sort((a, b) => a.name.localeCompare(b.name)));
     setForm({ ...form, customer_id: data.id, motorcycle_id: "" });
     setShowNewCustomer(false);
-    setNewCustomerForm({ name: "", phone: "", email: "", address: "", notes: "" });
+    setNewCustomerForm({ name: "", phone: "44", email: "", address: "", notes: "" });
     setCustomerSearch("");
     toast({ title: `Customer "${data.name}" created` });
   };
