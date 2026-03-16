@@ -83,7 +83,7 @@ serve(async (req) => {
           };
         }
 
-        const waResponse = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+        const waResponse = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify(waBody),
