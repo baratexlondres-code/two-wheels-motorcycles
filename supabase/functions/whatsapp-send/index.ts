@@ -10,9 +10,9 @@ const corsHeaders = {
 function formatUKNumber(phone: string | null): string | null {
   if (!phone) return null;
   phone = phone.replace(/\s+/g, "").replace(/[^0-9+]/g, "");
-  if (phone.startsWith("07")) return "44" + phone.slice(1);
-  if (phone.startsWith("+44")) return phone.slice(1);
-  if (phone.startsWith("+")) return phone.slice(1);
+  if (phone.startsWith("+")) phone = phone.slice(1);
+  if (phone.startsWith("0")) return "44" + phone.substring(1);
+  if (phone.startsWith("44")) return phone;
   return phone;
 }
 
@@ -83,7 +83,7 @@ serve(async (req) => {
           };
         }
 
-        const waResponse = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+        const waResponse = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
           body: JSON.stringify(waBody),
@@ -169,7 +169,7 @@ serve(async (req) => {
         }
 
         try {
-          const waResponse = await fetch(`https://graph.facebook.com/v19.0/${phoneNumberId}/messages`, {
+          const waResponse = await fetch(`https://graph.facebook.com/v20.0/${phoneNumberId}/messages`, {
             method: "POST",
             headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
             body: JSON.stringify({
