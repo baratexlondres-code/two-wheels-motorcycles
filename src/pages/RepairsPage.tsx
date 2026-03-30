@@ -810,15 +810,21 @@ const RepairsPage = () => {
                                       return (
                                         <div key={`s-${s.id}`} onClick={async () => {
                                           if (alreadyAdded || s.quantity <= 0) return;
-                                          // Directly add part to repair
+                                          // Fetch fresh stock qty from DB
+                                          const { data: fresh } = await supabase.from("stock_items").select("quantity, min_quantity").eq("id", s.id).single();
+                                          if (!fresh || fresh.quantity <= 0) { toast({ title: "Out of stock!", variant: "destructive" }); fetchData(); return; }
                                           await supabase.from("repair_parts").insert({
                                             repair_job_id: job.id, stock_item_id: s.id, quantity: 1, unit_price: s.sell_price || 0,
                                           });
                                           await supabase.from("stock_movements").insert({
                                             stock_item_id: s.id, type: "out", quantity: 1, reference: "Repair job", notes: "Used in repair",
                                           });
-                                          await supabase.from("stock_items").update({ quantity: Math.max(0, s.quantity - 1) }).eq("id", s.id);
-                                          toast({ title: `"${s.name}" added to repair` });
+                                          const newQty = fresh.quantity - 1;
+                                          await supabase.from("stock_items").update({ quantity: newQty }).eq("id", s.id);
+                                          toast({ title: `"${s.name}" added — stock: ${newQty}` });
+                                          if (newQty <= (fresh.min_quantity || 0)) {
+                                            toast({ title: `⚠️ Low stock alert: "${s.name}" only ${newQty} left!`, variant: "destructive" });
+                                          }
                                           setPartSearch("");
                                           fetchData();
                                         }}
