@@ -357,16 +357,20 @@ const RepairsPage = () => {
     if (!window.confirm("Remove this part? Stock will be returned.")) return;
     await supabase.from("repair_parts").delete().eq("id", part.id);
     if (part.stock_item_id) {
-      await supabase.from("stock_movements").insert({
-        stock_item_id: part.stock_item_id, type: "in", quantity: part.quantity, notes: "Returned from repair",
-      });
-      // Return stock quantity
-      const item = stockItems.find(s => s.id === part.stock_item_id);
-      if (item) {
-        await supabase.from("stock_items").update({ quantity: item.quantity + part.quantity }).eq("id", part.stock_item_id);
+      // Fetch current stock from DB to avoid stale data
+      const { data: currentItem } = await supabase.from("stock_items").select("quantity, name, min_quantity").eq("id", part.stock_item_id).single();
+      if (currentItem) {
+        const newQty = currentItem.quantity + part.quantity;
+        await supabase.from("stock_items").update({ quantity: newQty }).eq("id", part.stock_item_id);
+        await supabase.from("stock_movements").insert({
+          stock_item_id: part.stock_item_id, type: "in", quantity: part.quantity, notes: "Returned from repair",
+        });
+        toast({ title: `Part removed — ${currentItem.name} stock restored to ${newQty}` });
       }
+    } else {
+      toast({ title: "Part removed" });
     }
-    toast({ title: "Part removed" }); fetchData();
+    fetchData();
   };
 
   const togglePendingService = (svc: ServiceCatalogItem) => {
