@@ -1058,21 +1058,30 @@ const RepairsPage = () => {
                                 return (
                                   <div className="rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
                                     {stockMatches.map((s) => {
-                                      const isSelected = pendingParts.some((p) => p.stock_item_id === s.id);
+                                      const alreadyAdded = parts.some((p) => p.stock_item_id === s.id);
                                       return (
-                                        <div key={`s-${s.id}`} onClick={() => {
-                                          togglePendingPart(s.id);
+                                        <div key={`s-${s.id}`} onClick={async () => {
+                                          if (alreadyAdded || s.quantity <= 0) return;
+                                          await supabase.from("repair_parts").insert({
+                                            repair_job_id: job.id, stock_item_id: s.id, quantity: 1, unit_price: s.sell_price || 0,
+                                          });
+                                          await supabase.from("stock_movements").insert({
+                                            stock_item_id: s.id, type: "out", quantity: 1, reference: "Repair job", notes: "Used in repair",
+                                          });
+                                          await supabase.from("stock_items").update({ quantity: Math.max(0, s.quantity - 1) }).eq("id", s.id);
+                                          toast({ title: `"${s.name}" added to repair` });
+                                          setPartSearch("");
+                                          fetchData();
                                         }}
-                                          className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer hover:bg-secondary/50 border-b border-border/30 last:border-0 ${isSelected ? "bg-primary/10" : ""}`}>
+                                          className={`flex items-center justify-between px-3 py-2 text-xs cursor-pointer border-b border-border/30 last:border-0 ${alreadyAdded ? "opacity-40 cursor-not-allowed bg-secondary/30" : "hover:bg-secondary/50"} ${s.quantity <= 0 ? "opacity-30 cursor-not-allowed" : ""}`}>
                                           <div className="flex items-center gap-2">
-                                            <div className={`h-3.5 w-3.5 rounded border flex items-center justify-center ${isSelected ? "bg-primary border-primary" : "border-border"}`}>
-                                              {isSelected && <CheckCircle className="h-2.5 w-2.5 text-primary-foreground" />}
-                                            </div>
+                                            {alreadyAdded && <CheckCircle className="h-3 w-3 text-chart-green" />}
                                             <span className="text-foreground">{s.name}</span>
                                             {s.sku && <span className="text-muted-foreground">({s.sku})</span>}
+                                            {alreadyAdded && <span className="text-[10px] text-chart-green">already added</span>}
                                           </div>
                                           <div className="flex items-center gap-2">
-                                            <span className="text-muted-foreground text-[10px]">qty: {s.quantity}</span>
+                                            <span className={`text-muted-foreground text-[10px] ${s.quantity <= 0 ? "text-destructive font-bold" : ""}`}>qty: {s.quantity}</span>
                                             <span className="rounded bg-chart-blue/10 px-1.5 py-0.5 text-chart-blue text-[10px]">£{Number(s.sell_price).toFixed(2)}</span>
                                           </div>
                                         </div>
@@ -1089,32 +1098,6 @@ const RepairsPage = () => {
                                 );
                               })()}
                             </div>
-                            {/* Selected stock parts */}
-                            {pendingParts.filter(p => p.stock_item_id !== "__manual__").length > 0 && (
-                              <div className="space-y-1.5">
-                                <p className="text-xs font-semibold text-foreground">Stock parts selected:</p>
-                                {pendingParts.filter(p => p.stock_item_id !== "__manual__").map((pp) => {
-                                  const item = stockItems.find(s => s.id === pp.stock_item_id);
-                                  return (
-                                    <div key={pp.stock_item_id} className="flex items-center gap-2 rounded bg-primary/5 px-3 py-1.5 text-xs">
-                                      <span className="flex-1 text-foreground">{item?.name}</span>
-                                      <span className="text-muted-foreground">£{Number(item?.sell_price || 0).toFixed(2)}</span>
-                                      <span className="text-muted-foreground">×</span>
-                                      <input type="number" min="1" max={item?.quantity || 99} value={pp.quantity}
-                                        onChange={(e) => updatePendingPartQty(pp.stock_item_id, parseInt(e.target.value) || 1)}
-                                        className="w-12 rounded border border-border bg-card px-1 py-0.5 text-xs text-foreground text-center focus:outline-none" />
-                                      <button onClick={() => togglePendingPart(pp.stock_item_id)} className="text-muted-foreground hover:text-destructive">
-                                        <X className="h-3 w-3" />
-                                      </button>
-                                    </div>
-                                  );
-                                })}
-                                <button onClick={() => handleAddParts(job.id)}
-                                  className="w-full rounded bg-primary py-2 text-xs font-semibold text-primary-foreground hover:brightness-110">
-                                  Add {pendingParts.filter(p => p.stock_item_id !== "__manual__").length} Part(s) from Stock
-                                </button>
-                              </div>
-                            )}
 
                             {/* Manual part entry */}
                             <div className="border-t border-border/50 pt-2 mt-2">
