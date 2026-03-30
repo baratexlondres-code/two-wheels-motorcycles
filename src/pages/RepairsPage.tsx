@@ -1174,12 +1174,12 @@ const RepairsPage = () => {
                                     {!isLocked && (
                                       <button onClick={async () => {
                                         if (p.quantity <= 1) return;
-                                        const newQty = p.quantity - 1;
-                                        await supabase.from("repair_parts").update({ quantity: newQty }).eq("id", p.id);
-                                        // Return 1 to stock
-                                        if (item) {
-                                          await supabase.from("stock_items").update({ quantity: item.quantity + 1 }).eq("id", p.stock_item_id);
+                                        const { data: fresh } = await supabase.from("stock_items").select("quantity, min_quantity, name").eq("id", p.stock_item_id).single();
+                                        await supabase.from("repair_parts").update({ quantity: p.quantity - 1 }).eq("id", p.id);
+                                        if (fresh) {
+                                          await supabase.from("stock_items").update({ quantity: fresh.quantity + 1 }).eq("id", p.stock_item_id);
                                           await supabase.from("stock_movements").insert({ stock_item_id: p.stock_item_id, type: "in", quantity: 1, notes: "Qty adjusted in repair" });
+                                          toast({ title: `${fresh.name} qty reduced — stock: ${fresh.quantity + 1}` });
                                         }
                                         fetchData();
                                       }} className="rounded bg-secondary hover:bg-secondary/80 px-1.5 py-0.5 text-foreground min-h-[28px] min-w-[28px] flex items-center justify-center font-bold">−</button>
@@ -1187,13 +1187,15 @@ const RepairsPage = () => {
                                     <span className="w-6 text-center text-foreground font-medium">{p.quantity}</span>
                                     {!isLocked && (
                                       <button onClick={async () => {
-                                        if (item && item.quantity <= 0) { toast({ title: "No stock available", variant: "destructive" }); return; }
-                                        const newQty = p.quantity + 1;
-                                        await supabase.from("repair_parts").update({ quantity: newQty }).eq("id", p.id);
-                                        // Deduct 1 from stock
-                                        if (item) {
-                                          await supabase.from("stock_items").update({ quantity: Math.max(0, item.quantity - 1) }).eq("id", p.stock_item_id);
-                                          await supabase.from("stock_movements").insert({ stock_item_id: p.stock_item_id, type: "out", quantity: 1, notes: "Qty adjusted in repair" });
+                                        const { data: fresh } = await supabase.from("stock_items").select("quantity, min_quantity, name").eq("id", p.stock_item_id).single();
+                                        if (!fresh || fresh.quantity <= 0) { toast({ title: "No stock available!", variant: "destructive" }); fetchData(); return; }
+                                        await supabase.from("repair_parts").update({ quantity: p.quantity + 1 }).eq("id", p.id);
+                                        const newStockQty = fresh.quantity - 1;
+                                        await supabase.from("stock_items").update({ quantity: newStockQty }).eq("id", p.stock_item_id);
+                                        await supabase.from("stock_movements").insert({ stock_item_id: p.stock_item_id, type: "out", quantity: 1, notes: "Qty adjusted in repair" });
+                                        toast({ title: `${fresh.name} qty increased — stock: ${newStockQty}` });
+                                        if (newStockQty <= (fresh.min_quantity || 0)) {
+                                          toast({ title: `⚠️ Low stock: "${fresh.name}" only ${newStockQty} left!`, variant: "destructive" });
                                         }
                                         fetchData();
                                       }} className="rounded bg-secondary hover:bg-secondary/80 px-1.5 py-0.5 text-foreground min-h-[28px] min-w-[28px] flex items-center justify-center font-bold">+</button>
