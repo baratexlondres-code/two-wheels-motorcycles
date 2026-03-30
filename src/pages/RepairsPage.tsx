@@ -1069,7 +1069,7 @@ const RepairsPage = () => {
                                 const stockMatches = rankStockItems<StockItem>(stockItems, partSearch);
                                 if (historyMatches.length === 0 && stockMatches.length === 0) return null;
                                 return (
-                                  <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
+                                  <div className="rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
                                     {stockMatches.map((s) => {
                                       const isSelected = pendingParts.some((p) => p.stock_item_id === s.id);
                                       return (
