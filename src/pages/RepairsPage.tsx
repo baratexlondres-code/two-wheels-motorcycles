@@ -835,6 +835,7 @@ const RepairsPage = () => {
                                   </div>
                                 );
                               })()}
+                            </div>
                           </div>
                         )}
 
