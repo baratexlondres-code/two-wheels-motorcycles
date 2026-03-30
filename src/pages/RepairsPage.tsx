@@ -335,6 +335,7 @@ const RepairsPage = () => {
   const handleAddParts = async (jobId: string) => {
     if (pendingParts.length === 0) { toast({ title: "Select at least one part", variant: "destructive" }); return; }
     for (const pp of pendingParts) {
+      if (pp.stock_item_id === "__manual__") continue;
       const item = stockItems.find((s) => s.id === pp.stock_item_id);
       await supabase.from("repair_parts").insert({
         repair_job_id: jobId, stock_item_id: pp.stock_item_id, quantity: pp.quantity, unit_price: item?.sell_price || 0,
@@ -342,6 +343,11 @@ const RepairsPage = () => {
       await supabase.from("stock_movements").insert({
         stock_item_id: pp.stock_item_id, type: "out", quantity: pp.quantity, reference: "Repair job", notes: "Used in repair",
       });
+      // Actually deduct stock quantity
+      if (item) {
+        const newQty = Math.max(0, item.quantity - pp.quantity);
+        await supabase.from("stock_items").update({ quantity: newQty }).eq("id", pp.stock_item_id);
+      }
     }
     toast({ title: `${pendingParts.length} part(s) added` });
     setShowAddPart(null); setPendingParts([]); setPartSearch(""); fetchData();
