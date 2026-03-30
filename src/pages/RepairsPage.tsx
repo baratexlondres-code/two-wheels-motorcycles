@@ -800,7 +800,7 @@ const RepairsPage = () => {
                                 const stockMatches = rankStockItems<StockItem>(stockItems, partSearch);
                                 if (stockMatches.length === 0) return <p className="text-[10px] text-muted-foreground mt-1">No stock items found for "{partSearch}"</p>;
                                 return (
-                                  <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
+                                  <div className="rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
                                     {stockMatches.map((s) => {
                                       const isSelected = pendingParts.some((p) => p.stock_item_id === s.id);
                                       return (
