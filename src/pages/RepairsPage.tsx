@@ -802,7 +802,7 @@ const RepairsPage = () => {
                                 return (
                                   <div className="rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
                                     {stockMatches.map((s) => {
-                                      const alreadyAdded = jobParts.some((p) => p.stock_item_id === s.id);
+                                      const alreadyAdded = parts.some((p) => p.stock_item_id === s.id);
                                       return (
                                         <div key={`s-${s.id}`} onClick={async () => {
                                           if (alreadyAdded || s.quantity <= 0) return;
