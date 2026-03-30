@@ -335,6 +335,7 @@ const RepairsPage = () => {
   const handleAddParts = async (jobId: string) => {
     if (pendingParts.length === 0) { toast({ title: "Select at least one part", variant: "destructive" }); return; }
     for (const pp of pendingParts) {
+      if (pp.stock_item_id === "__manual__") continue;
       const item = stockItems.find((s) => s.id === pp.stock_item_id);
       await supabase.from("repair_parts").insert({
         repair_job_id: jobId, stock_item_id: pp.stock_item_id, quantity: pp.quantity, unit_price: item?.sell_price || 0,
@@ -342,6 +343,11 @@ const RepairsPage = () => {
       await supabase.from("stock_movements").insert({
         stock_item_id: pp.stock_item_id, type: "out", quantity: pp.quantity, reference: "Repair job", notes: "Used in repair",
       });
+      // Actually deduct stock quantity
+      if (item) {
+        const newQty = Math.max(0, item.quantity - pp.quantity);
+        await supabase.from("stock_items").update({ quantity: newQty }).eq("id", pp.stock_item_id);
+      }
     }
     toast({ title: `${pendingParts.length} part(s) added` });
     setShowAddPart(null); setPendingParts([]); setPartSearch(""); fetchData();
@@ -350,9 +356,16 @@ const RepairsPage = () => {
   const handleRemovePart = async (part: RepairPart) => {
     if (!window.confirm("Remove this part? Stock will be returned.")) return;
     await supabase.from("repair_parts").delete().eq("id", part.id);
-    await supabase.from("stock_movements").insert({
-      stock_item_id: part.stock_item_id, type: "in", quantity: part.quantity, notes: "Returned from repair",
-    });
+    if (part.stock_item_id) {
+      await supabase.from("stock_movements").insert({
+        stock_item_id: part.stock_item_id, type: "in", quantity: part.quantity, notes: "Returned from repair",
+      });
+      // Return stock quantity
+      const item = stockItems.find(s => s.id === part.stock_item_id);
+      if (item) {
+        await supabase.from("stock_items").update({ quantity: item.quantity + part.quantity }).eq("id", part.stock_item_id);
+      }
+    }
     toast({ title: "Part removed" }); fetchData();
   };
 
@@ -787,7 +800,7 @@ const RepairsPage = () => {
                                 const stockMatches = rankStockItems<StockItem>(stockItems, partSearch);
                                 if (stockMatches.length === 0) return <p className="text-[10px] text-muted-foreground mt-1">No stock items found for "{partSearch}"</p>;
                                 return (
-                                  <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
+                                  <div className="rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
                                     {stockMatches.map((s) => {
                                       const isSelected = pendingParts.some((p) => p.stock_item_id === s.id);
                                       return (
@@ -1056,7 +1069,7 @@ const RepairsPage = () => {
                                 const stockMatches = rankStockItems<StockItem>(stockItems, partSearch);
                                 if (historyMatches.length === 0 && stockMatches.length === 0) return null;
                                 return (
-                                  <div className="absolute z-10 w-full rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
+                                  <div className="rounded border border-border bg-card shadow-lg mt-0.5 max-h-60 overflow-y-auto">
                                     {stockMatches.map((s) => {
                                       const isSelected = pendingParts.some((p) => p.stock_item_id === s.id);
                                       return (
