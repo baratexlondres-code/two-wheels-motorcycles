@@ -357,16 +357,20 @@ const RepairsPage = () => {
     if (!window.confirm("Remove this part? Stock will be returned.")) return;
     await supabase.from("repair_parts").delete().eq("id", part.id);
     if (part.stock_item_id) {
-      await supabase.from("stock_movements").insert({
-        stock_item_id: part.stock_item_id, type: "in", quantity: part.quantity, notes: "Returned from repair",
-      });
-      // Return stock quantity
-      const item = stockItems.find(s => s.id === part.stock_item_id);
-      if (item) {
-        await supabase.from("stock_items").update({ quantity: item.quantity + part.quantity }).eq("id", part.stock_item_id);
+      // Fetch current stock from DB to avoid stale data
+      const { data: currentItem } = await supabase.from("stock_items").select("quantity, name, min_quantity").eq("id", part.stock_item_id).single();
+      if (currentItem) {
+        const newQty = currentItem.quantity + part.quantity;
+        await supabase.from("stock_items").update({ quantity: newQty }).eq("id", part.stock_item_id);
+        await supabase.from("stock_movements").insert({
+          stock_item_id: part.stock_item_id, type: "in", quantity: part.quantity, notes: "Returned from repair",
+        });
+        toast({ title: `Part removed — ${currentItem.name} stock restored to ${newQty}` });
       }
+    } else {
+      toast({ title: "Part removed" });
     }
-    toast({ title: "Part removed" }); fetchData();
+    fetchData();
   };
 
   const togglePendingService = (svc: ServiceCatalogItem) => {
@@ -806,15 +810,21 @@ const RepairsPage = () => {
                                       return (
                                         <div key={`s-${s.id}`} onClick={async () => {
                                           if (alreadyAdded || s.quantity <= 0) return;
-                                          // Directly add part to repair
+                                          // Fetch fresh stock qty from DB
+                                          const { data: fresh } = await supabase.from("stock_items").select("quantity, min_quantity").eq("id", s.id).single();
+                                          if (!fresh || fresh.quantity <= 0) { toast({ title: "Out of stock!", variant: "destructive" }); fetchData(); return; }
                                           await supabase.from("repair_parts").insert({
                                             repair_job_id: job.id, stock_item_id: s.id, quantity: 1, unit_price: s.sell_price || 0,
                                           });
                                           await supabase.from("stock_movements").insert({
                                             stock_item_id: s.id, type: "out", quantity: 1, reference: "Repair job", notes: "Used in repair",
                                           });
-                                          await supabase.from("stock_items").update({ quantity: Math.max(0, s.quantity - 1) }).eq("id", s.id);
-                                          toast({ title: `"${s.name}" added to repair` });
+                                          const newQty = fresh.quantity - 1;
+                                          await supabase.from("stock_items").update({ quantity: newQty }).eq("id", s.id);
+                                          toast({ title: `"${s.name}" added — stock: ${newQty}` });
+                                          if (newQty <= (fresh.min_quantity || 0)) {
+                                            toast({ title: `⚠️ Low stock alert: "${s.name}" only ${newQty} left!`, variant: "destructive" });
+                                          }
                                           setPartSearch("");
                                           fetchData();
                                         }}
@@ -1062,14 +1072,20 @@ const RepairsPage = () => {
                                       return (
                                         <div key={`s-${s.id}`} onClick={async () => {
                                           if (alreadyAdded || s.quantity <= 0) return;
+                                          const { data: fresh } = await supabase.from("stock_items").select("quantity, min_quantity").eq("id", s.id).single();
+                                          if (!fresh || fresh.quantity <= 0) { toast({ title: "Out of stock!", variant: "destructive" }); fetchData(); return; }
                                           await supabase.from("repair_parts").insert({
                                             repair_job_id: job.id, stock_item_id: s.id, quantity: 1, unit_price: s.sell_price || 0,
                                           });
                                           await supabase.from("stock_movements").insert({
                                             stock_item_id: s.id, type: "out", quantity: 1, reference: "Repair job", notes: "Used in repair",
                                           });
-                                          await supabase.from("stock_items").update({ quantity: Math.max(0, s.quantity - 1) }).eq("id", s.id);
-                                          toast({ title: `"${s.name}" added to repair` });
+                                          const newQty = fresh.quantity - 1;
+                                          await supabase.from("stock_items").update({ quantity: newQty }).eq("id", s.id);
+                                          toast({ title: `"${s.name}" added — stock: ${newQty}` });
+                                          if (newQty <= (fresh.min_quantity || 0)) {
+                                            toast({ title: `⚠️ Low stock alert: "${s.name}" only ${newQty} left!`, variant: "destructive" });
+                                          }
                                           setPartSearch("");
                                           fetchData();
                                         }}
@@ -1158,12 +1174,12 @@ const RepairsPage = () => {
                                     {!isLocked && (
                                       <button onClick={async () => {
                                         if (p.quantity <= 1) return;
-                                        const newQty = p.quantity - 1;
-                                        await supabase.from("repair_parts").update({ quantity: newQty }).eq("id", p.id);
-                                        // Return 1 to stock
-                                        if (item) {
-                                          await supabase.from("stock_items").update({ quantity: item.quantity + 1 }).eq("id", p.stock_item_id);
+                                        const { data: fresh } = await supabase.from("stock_items").select("quantity, min_quantity, name").eq("id", p.stock_item_id).single();
+                                        await supabase.from("repair_parts").update({ quantity: p.quantity - 1 }).eq("id", p.id);
+                                        if (fresh) {
+                                          await supabase.from("stock_items").update({ quantity: fresh.quantity + 1 }).eq("id", p.stock_item_id);
                                           await supabase.from("stock_movements").insert({ stock_item_id: p.stock_item_id, type: "in", quantity: 1, notes: "Qty adjusted in repair" });
+                                          toast({ title: `${fresh.name} qty reduced — stock: ${fresh.quantity + 1}` });
                                         }
                                         fetchData();
                                       }} className="rounded bg-secondary hover:bg-secondary/80 px-1.5 py-0.5 text-foreground min-h-[28px] min-w-[28px] flex items-center justify-center font-bold">−</button>
@@ -1171,13 +1187,15 @@ const RepairsPage = () => {
                                     <span className="w-6 text-center text-foreground font-medium">{p.quantity}</span>
                                     {!isLocked && (
                                       <button onClick={async () => {
-                                        if (item && item.quantity <= 0) { toast({ title: "No stock available", variant: "destructive" }); return; }
-                                        const newQty = p.quantity + 1;
-                                        await supabase.from("repair_parts").update({ quantity: newQty }).eq("id", p.id);
-                                        // Deduct 1 from stock
-                                        if (item) {
-                                          await supabase.from("stock_items").update({ quantity: Math.max(0, item.quantity - 1) }).eq("id", p.stock_item_id);
-                                          await supabase.from("stock_movements").insert({ stock_item_id: p.stock_item_id, type: "out", quantity: 1, notes: "Qty adjusted in repair" });
+                                        const { data: fresh } = await supabase.from("stock_items").select("quantity, min_quantity, name").eq("id", p.stock_item_id).single();
+                                        if (!fresh || fresh.quantity <= 0) { toast({ title: "No stock available!", variant: "destructive" }); fetchData(); return; }
+                                        await supabase.from("repair_parts").update({ quantity: p.quantity + 1 }).eq("id", p.id);
+                                        const newStockQty = fresh.quantity - 1;
+                                        await supabase.from("stock_items").update({ quantity: newStockQty }).eq("id", p.stock_item_id);
+                                        await supabase.from("stock_movements").insert({ stock_item_id: p.stock_item_id, type: "out", quantity: 1, notes: "Qty adjusted in repair" });
+                                        toast({ title: `${fresh.name} qty increased — stock: ${newStockQty}` });
+                                        if (newStockQty <= (fresh.min_quantity || 0)) {
+                                          toast({ title: `⚠️ Low stock: "${fresh.name}" only ${newStockQty} left!`, variant: "destructive" });
                                         }
                                         fetchData();
                                       }} className="rounded bg-secondary hover:bg-secondary/80 px-1.5 py-0.5 text-foreground min-h-[28px] min-w-[28px] flex items-center justify-center font-bold">+</button>
