@@ -356,9 +356,16 @@ const RepairsPage = () => {
   const handleRemovePart = async (part: RepairPart) => {
     if (!window.confirm("Remove this part? Stock will be returned.")) return;
     await supabase.from("repair_parts").delete().eq("id", part.id);
-    await supabase.from("stock_movements").insert({
-      stock_item_id: part.stock_item_id, type: "in", quantity: part.quantity, notes: "Returned from repair",
-    });
+    if (part.stock_item_id) {
+      await supabase.from("stock_movements").insert({
+        stock_item_id: part.stock_item_id, type: "in", quantity: part.quantity, notes: "Returned from repair",
+      });
+      // Return stock quantity
+      const item = stockItems.find(s => s.id === part.stock_item_id);
+      if (item) {
+        await supabase.from("stock_items").update({ quantity: item.quantity + part.quantity }).eq("id", part.stock_item_id);
+      }
+    }
     toast({ title: "Part removed" }); fetchData();
   };
 
