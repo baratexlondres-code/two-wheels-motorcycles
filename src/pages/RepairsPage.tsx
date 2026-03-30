@@ -1153,9 +1153,36 @@ const RepairsPage = () => {
                               const item = stockItems.find((s) => s.id === p.stock_item_id);
                               return (
                                 <div key={p.id} className="flex items-center justify-between rounded bg-card px-3 py-2 text-xs">
-                                  <span className="text-foreground">{item?.name || "Unknown"} × {p.quantity}</span>
-                                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                    <span className="text-muted-foreground">£</span>
+                                  <span className="text-foreground flex-1 truncate">{item?.name || "Unknown"}</span>
+                                  <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                                    {!isLocked && (
+                                      <button onClick={async () => {
+                                        if (p.quantity <= 1) return;
+                                        const newQty = p.quantity - 1;
+                                        await supabase.from("repair_parts").update({ quantity: newQty }).eq("id", p.id);
+                                        // Return 1 to stock
+                                        if (item) {
+                                          await supabase.from("stock_items").update({ quantity: item.quantity + 1 }).eq("id", p.stock_item_id);
+                                          await supabase.from("stock_movements").insert({ stock_item_id: p.stock_item_id, type: "in", quantity: 1, notes: "Qty adjusted in repair" });
+                                        }
+                                        fetchData();
+                                      }} className="rounded bg-secondary hover:bg-secondary/80 px-1.5 py-0.5 text-foreground min-h-[28px] min-w-[28px] flex items-center justify-center font-bold">−</button>
+                                    )}
+                                    <span className="w-6 text-center text-foreground font-medium">{p.quantity}</span>
+                                    {!isLocked && (
+                                      <button onClick={async () => {
+                                        if (item && item.quantity <= 0) { toast({ title: "No stock available", variant: "destructive" }); return; }
+                                        const newQty = p.quantity + 1;
+                                        await supabase.from("repair_parts").update({ quantity: newQty }).eq("id", p.id);
+                                        // Deduct 1 from stock
+                                        if (item) {
+                                          await supabase.from("stock_items").update({ quantity: Math.max(0, item.quantity - 1) }).eq("id", p.stock_item_id);
+                                          await supabase.from("stock_movements").insert({ stock_item_id: p.stock_item_id, type: "out", quantity: 1, notes: "Qty adjusted in repair" });
+                                        }
+                                        fetchData();
+                                      }} className="rounded bg-secondary hover:bg-secondary/80 px-1.5 py-0.5 text-foreground min-h-[28px] min-w-[28px] flex items-center justify-center font-bold">+</button>
+                                    )}
+                                    <span className="text-muted-foreground ml-1">£</span>
                                     <input type="number" inputMode="decimal" step="0.01" defaultValue={Number(p.unit_price) || ""}
                                       placeholder="0.00" disabled={isLocked}
                                       onBlur={async (e) => {
