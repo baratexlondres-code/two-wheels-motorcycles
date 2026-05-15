@@ -2,6 +2,7 @@ import React from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { TopBar } from "@/components/TopBar";
+import { OverdueBanner } from "@/components/OverdueBanner";
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -17,6 +18,7 @@ export function MainLayout({ children, onLock, onAdminLogin, isOwner }: MainLayo
         <AppSidebar onLock={onLock} onAdminLogin={onAdminLogin} isOwner={isOwner} />
         <div className="flex flex-1 flex-col overflow-hidden">
           <TopBar />
+          <OverdueBanner />
           <main className="flex-1 overflow-y-auto">
             {children}
           </main>
